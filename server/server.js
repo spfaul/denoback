@@ -1,6 +1,6 @@
 const { readFileSync } = require("fs");
 // const { createServer } = require("https");
-// const { createServer } = require("http");
+const { createServer } = require("http");
 const { Server } = require("socket.io");
 
 // const httpServer = createServer({
@@ -8,7 +8,7 @@ const { Server } = require("socket.io");
     // cert: readFileSync("cert/cert.pem")
 // });
 
-const io = new Server(8080, {
+const io = new Server(80, {
     cors: {
             origin: "*"
     }
