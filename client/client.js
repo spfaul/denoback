@@ -147,8 +147,8 @@ ioClient.on("disconnect", () => {
 });
 
 ioClient.on("updateRoom", (newRoomId) => {
-  const roomIdInput = document.getElementById("joinRoomId");
-  roomIdInput.value = "";
+  // const roomIdInput = document.getElementById("joinRoomId");
+  // roomIdInput.value = "";
   roomId = newRoomId;
   pendingInps = [];
   entities = new Map();
@@ -169,8 +169,12 @@ function preload() {
   charImg = loadImage("./assets/doux.png");
 }
 
+function windowResized() {
+  resizeCanvas(windowWidth, windowHeight);
+}
+
 function setup() {
-  new Canvas(800, 800);
+  new Canvas(windowWidth, windowHeight);
   frameRate(60)
   camera.true_scroll = [0,0];
   world.gravity.y = 20;
