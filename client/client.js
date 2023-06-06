@@ -1,10 +1,13 @@
 const ioClient = io.connect("wss://denoback.onrender.com");
+// const ioClient = io.connect("ws://172.104.54.249");
 const TP_COOLDOWN_MS = 3000;
 let roomId = "";
 let entities = new Map();
 let charImg;
 let allPlayers = [];
 let player, playerPast, buls, mapData;
+let gameState = "menu";
+let menu;
 
 ioClient.on("buildMapData", _mapData => {
   allSprites.removeAll();
@@ -22,9 +25,20 @@ ioClient.on("buildMapData", _mapData => {
     new Tiles(gData.tiles.map, gData.tiles.x, gData.tiles.y, gData.w, gData.h);
     mapData.platforms.push(grp);
   }
-  buls = new Group();
-  buls.color = "cyan";
-  buls.r = 5;
+  // buls = new Group();
+  // buls.color = "cyan";
+  // buls.r = 5;
+  createPlayer();
+
+  playerPast = spawnSprite({
+    id: "PAST_PLAYER"+ioClient.id
+  });
+
+  gameState = "play";
+  menu.hide();
+});
+
+function createPlayer() {
   player = spawnSprite({
     x: 0,
     y: 0,
@@ -37,30 +51,19 @@ ioClient.on("buildMapData", _mapData => {
   }];
   player.knockback = 0.1;
   player.lastTp = 0;
-  playerPast = spawnSprite({
-    id: "PAST_PLAYER"+ioClient.id
-  });
-  respawn();
-});
-
-function respawn() {
-  player.x = random(...mapData.spawnPoint.xRange);
-  player.y = random(...mapData.spawnPoint.yRange);
-  player.positionBuff = [{
-    ts: +new Date(),
-    x: player.x,
-    y: player.y
-  }];
-  player.knockback = 0.1;
-}
-
-function requestRoom() {
-  ioClient.emit("createRoom");
-}
-
-function joinRoom() {
-  const roomIdInput = document.getElementById("joinRoomId");
-  ioClient.emit("joinRoom", roomIdInput.value);
+  player.respawn = () => {
+    player.x = random(...mapData.spawnPoint.xRange);
+    player.y = random(...mapData.spawnPoint.yRange);
+    player.vel = createVector(0, 0);
+    player.positionBuff = [{
+      ts: +new Date(),
+      x: player.x,
+      y: player.y
+    }];
+    player.knockback = 0.1;
+  }
+  player.respawn();
+  ioClient.on("respawn", player.respawn);
 }
 
 function spawnSprite(data) {
@@ -131,7 +134,6 @@ ioClient.on("pos", (selfId, datas) => {
     }
 });
 
-ioClient.on("respawn", respawn);
 
 ioClient.on("createBul", (x, y, vx, vy) => {
   let b = new buls.Sprite();
@@ -171,13 +173,16 @@ function preload() {
 
 function windowResized() {
   resizeCanvas(windowWidth, windowHeight);
+  world.resize(windowWidth, windowHeight);
 }
 
 function setup() {
-  new Canvas(windowWidth, windowHeight);
+  new Canvas("fullscreen");
   frameRate(60)
   camera.true_scroll = [0,0];
   world.gravity.y = 20;
+  allSprites.autoCull = false;
+  menu = new Menu();
 }
 
 let latency = 0;
@@ -192,14 +197,23 @@ setInterval(() => {
 
 function draw() {
   background(220);
-  if (!roomId) {
-    textAlign(CENTER, CENTER)
-    text("NOT INSIDE ROOM", 0, 0, width, height)
-    return
-  } else if (!player || !ioClient.connected) {
-    textAlign(CENTER, CENTER)
-    text("NOT CONNECTED", 0, 0, width, height)
-    return
+  if (gameState === "menu")
+    draw_menu();
+  else if (gameState === "play")
+    draw_game();
+}
+
+function draw_menu() {
+  menu.update();
+}
+
+function draw_game() {
+  if (!player) {
+    push();
+    textAlign(CENTER, CENTER);
+    text("Retrieving Game Info...", 0, 0, width, height);
+    pop();
+    return;
   }
 
   textSize(25);
