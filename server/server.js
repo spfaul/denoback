@@ -1,12 +1,6 @@
 const { readFileSync } = require("fs");
-// const { createServer } = require("https");
 const { createServer } = require("http");
 const { Server } = require("socket.io");
-
-// const httpServer = createServer({
-    // key: readFileSync("cert/key.pem"),
-    // cert: readFileSync("cert/cert.pem")
-// });
 
 const io = new Server(80, {
     cors: {
@@ -14,12 +8,15 @@ const io = new Server(80, {
     }
 });
 
-// httpServer.listen(8080);
 
 let rooms = []
 const MAX_ROOMS = 3;
 const mapData = {
     standoff: {
+        playArea: {
+            xRange: [-2000, 3000],
+            yRange: [-500, 1000]
+        },
         spawnPoint: {
             xRange: [400, 600],
             yRange: [-200,-200]
@@ -46,8 +43,8 @@ const mapData = {
 function Client(sock) {
     this.sock = sock;
     this.id = "PLAYER-" + this.sock.id;
-    this.x = randomInt(200);
-    this.y = randomInt(200);
+    this.x = 0;
+    this.y = 0;
     this.vx = 0;
     this.vy = 0;
     this.tx = 0;
@@ -145,17 +142,14 @@ io.on("connection", (socket) => {
     });
 });
 
-function constrain(n, low, high) {
-    if (n < low) return low;
-    if (n > high) return high;
-    return n;
-}
-
-
 function tick(room) {
     let render_timestamp = +new Date();
     let allPos = room.clients.map(c => {
-        if (c.y > 800) {
+        let _mapData = mapData[room.mapName];
+        if (c.x < _mapData.playArea.xRange[0] || 
+            c.x > _mapData.playArea.xRange[1] || 
+            c.y < _mapData.playArea.yRange[0] || 
+            c.y > _mapData.playArea.yRange[1]) {
             c.sock.emit("respawn");
         }
         c.lastUpdated = render_timestamp;
