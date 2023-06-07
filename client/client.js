@@ -8,6 +8,7 @@ let allPlayers = [];
 let player, playerPast, buls, mapData;
 let gameState = "menu";
 let menu;
+let bg;
 
 ioClient.on("buildMapData", _mapData => {
   allSprites.removeAll();
@@ -36,6 +37,9 @@ ioClient.on("buildMapData", _mapData => {
 
   gameState = "play";
   menu.hide();
+
+  bg = new ParallaxLayer(mapData.bg);
+  bg.load(() => {}); // TODO
 });
 
 function createPlayer() {
@@ -172,6 +176,10 @@ function preload() {
 }
 
 function windowResized() {
+  const MAX_CANV_HEIGHT = 864;
+  const MAX_CANV_WIDTH = 1536;
+  if (windowWidth > MAX_CANV_WIDTH || windowHeight > MAX_CANV_HEIGHT)
+    return;
   resizeCanvas(windowWidth, windowHeight);
   world.resize(windowWidth, windowHeight);
 }
@@ -216,6 +224,7 @@ function draw_game() {
     return;
   }
 
+  bg.update(player.pos);
   textSize(25);
   textAlign(LEFT, TOP);
   text("Room Id: " + roomId, 20, 20, width, 50)
@@ -250,7 +259,19 @@ function draw_game() {
   // jumping
   for (const g of mapData.platforms) {
     if (player.collides(g)) {
-      player.jumps = 0;
+      let closest_tile = null;
+      let closest_tile_dist = Infinity;
+      for (i=0; i<g.size(); i++) {
+        let d = dist(g[i].x, g[i].y, player.x, player.y);
+        if (closest_tile === null || d < closest_tile_dist) {
+          closest_tile = g[i];
+          closest_tile_dist = d;
+        }
+      }
+      const angle_to_closest_tile = player.angleTo(closest_tile.x, closest_tile.y);
+      // Only replenish jumps if player is colliding top surface of platform
+      if (angle_to_closest_tile > 0)
+        player.jumps = 0;
       break;
     }
   }
