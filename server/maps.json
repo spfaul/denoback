@@ -1,70 +1,59 @@
 {
-    standoff: {
-        bg: [
-          {
-            image: "assets/mtn-8.png",
-            speed: .1,
-            y: 0,
-          },
-          {
-            image: "assets/mtn-7.png",
-            speed: .2,
-            y: 0,
-          },
-          {
-            image: "assets/mtn-6.png",
-            speed: .3,
-            y: 0,
-          },
-          {
-            image: "assets/mtn-5.png",
-            speed: .4,
-            y: 0,
-          },
-          {
-            image: "assets/mtn-4.png",
-            speed: .5,
-            y: 0,
-          },
-          {
-            image: "assets/mtn-3.png",
-            speed: .6,
-            y: 0,
-          },
-          {
-            image: "assets/mtn-2.png",
-            speed: .7,
-            y: 0,
-          },
-          {
-            image: "assets/mtn-1.png",
-            speed: .8,
-            y: 0,
-          }
-        ],
-        playArea: {
-            xRange: [-2000, 3000],
-            yRange: [-500, 1000]
-        },
-        spawnPoint: {
-            xRange: [400, 600],
-            yRange: [-200,-200]
-        },
-        groups: {
-            bricks: {
-                collider: "static",
-                w: 100,
-                h: 20,
-                tile: "=",
-                color: "#3A506D",
-                tiles: {
-                    map: [" ===   ===",
-                          "","","","","","","","","","","",
-                          "==========="],
-                    x: 0,
-                    y: 0  
-                }
-            }
-        }
-    }
+	"standoff": {
+		"bg": [{
+			"imgName": "assets/mtn-8.png",
+			"speed": 0.9,
+			"y": 0
+		}, {
+			"imgName": "assets/mtn-7.png",
+			"speed": 0.8,
+			"y": 0
+		}, {
+			"imgName": "assets/mtn-6.png",
+			"speed": 0.7,
+			"y": 0
+		}, {
+			"imgName": "assets/mtn-5.png",
+			"speed": 0.6,
+			"y": 0
+		}, {
+			"imgName": "assets/mtn-4.png",
+			"speed": 0.5,
+			"y": 0
+		}, {
+			"imgName": "assets/mtn-3.png",
+			"speed": 0.4,
+			"y": 0
+		}, {
+			"imgName": "assets/mtn-2.png",
+			"speed": 0.3,
+			"y": 0
+		}, {
+			"imgName": "assets/mtn-1.png",
+			"speed": 0.1,
+			"y": 0
+		}],
+		"playArea": {
+			"xRange": [-2000, 3000],
+			"yRange": [-500, 1000]
+		},
+		"spawnPoint": {
+			"xRange": [400, 600],
+			"yRange": [-200, -200]
+		},
+		"groups": {
+			"bricks": {
+				"collider": "static",
+				"w": 100,
+				"h": 20,
+				"tile": "=",
+				"color": "#3A506D",
+				"tiles": {
+					"map": [" ===   ===", "", "", "", "", "", "", "", "", "", "", "", "==========="],
+					"x": 0,
+					"y": 0
+				}
+			}
+		}
+	}
 }
