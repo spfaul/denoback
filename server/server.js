@@ -11,34 +11,7 @@ const io = new Server(80, {
 
 let rooms = []
 const MAX_ROOMS = 3;
-const mapData = {
-    standoff: {
-        playArea: {
-            xRange: [-2000, 3000],
-            yRange: [-500, 1000]
-        },
-        spawnPoint: {
-            xRange: [400, 600],
-            yRange: [-200,-200]
-        },
-        groups: {
-            bricks: {
-                collider: "static",
-                w: 100,
-                h: 20,
-                tile: "=",
-                color: "#3A506D",
-                tiles: {
-                    map: [" ===   ===",
-                          "","","","","","","","","","","",
-                          "==========="],
-                    x: 0,
-                    y: 0  
-                }
-            }
-        }
-    }
-};
+const mapData = JSON.parse(fs.readFileSync('./maps.json'));
 
 function Client(sock) {
     this.sock = sock;
