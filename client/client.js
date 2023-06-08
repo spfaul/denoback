@@ -178,8 +178,10 @@ function preload() {
 function windowResized() {
   const MAX_CANV_HEIGHT = 864;
   const MAX_CANV_WIDTH = 1536;
-  if (windowWidth > MAX_CANV_WIDTH || windowHeight > MAX_CANV_HEIGHT)
+  if (windowWidth > MAX_CANV_WIDTH || windowHeight > MAX_CANV_HEIGHT) {
+    resizeCanvas(MAX_CANV_WIDTH, MAX_CANV_HEIGHT);
     return;
+  }
   resizeCanvas(windowWidth, windowHeight);
   world.resize(windowWidth, windowHeight);
 }
@@ -187,6 +189,7 @@ function windowResized() {
 function setup() {
   new Canvas("fullscreen");
   frameRate(60)
+  windowResized();
   camera.true_scroll = [0,0];
   world.gravity.y = 20;
   allSprites.autoCull = false;

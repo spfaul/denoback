@@ -87,14 +87,14 @@ class Menu {
 	getOffset(el) {
 		// Taken from:
 		// https://stackoverflow.com/questions/442404/retrieve-the-position-x-y-of-an-html-element
-    var _x = 0;
-    var _y = 0;
-    while( el && !isNaN( el.offsetLeft ) && !isNaN( el.offsetTop ) ) {
-        _x += el.offsetLeft - el.scrollLeft;
-        _y += el.offsetTop - el.scrollTop;
-        el = el.offsetParent;
-    }
-    return { top: _y, left: _x };
+	    var _x = 0;
+	    var _y = 0;
+	    while( el && !isNaN( el.offsetLeft ) && !isNaN( el.offsetTop ) ) {
+	        _x += el.offsetLeft - el.scrollLeft;
+	        _y += el.offsetTop - el.scrollTop;
+	        el = el.offsetParent;
+	    }
+	    return { top: _y, left: _x };
 	}
 
 	update() {
@@ -108,7 +108,9 @@ class Menu {
 			fill("red");
 		text(ioClient.connected ? "Connected" : "Disconnected", 160, 30, width, 30);
 		let inp_width_px = max(width/4, 400);
-		this.roomCodeInp.position(width/2-inp_width_px/2, height/2);
+		const canv_elemt = document.getElementById("defaultCanvas0");
+		const canv_off = this.getOffset(canv_elemt);
+		this.roomCodeInp.position(canv_off.left+width/2-inp_width_px/2, canv_off.top+height/2);
 		this.roomCodeInp.style("width", `${inp_width_px}px`);
 		this.newRoomBtn.setDimensions(width/2-inp_width_px/2, height/5, inp_width_px, height/10);
 		this.newRoomBtn.update();
