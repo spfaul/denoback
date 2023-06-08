@@ -1,0 +1,16 @@
+{
+  "name": "client",
+  "version": "1.0.0",
+  "description": "",
+  "main": "client.js",
+  "scripts": {
+    "format": "prettier --write \"*.js\"",
+    "serve": "serve"
+  },
+  "author": "",
+  "license": "MIT",
+  "devDependencies": {
+    "prettier": "^2.8.8",
+    "serve": "^14.2.0"
+  }
+}
