@@ -1,5 +1,5 @@
-// const ioClient = io.connect("wss://denoback.onrender.com");
-const ioClient = io.connect("ws://172.104.54.249");
+const ioClient = io.connect("wss://denoback.onrender.com");
+// const ioClient = io.connect("ws://172.104.54.249");
 const TP_COOLDOWN_MS = 3000;
 let roomId = "";
 let entities = new Map();
