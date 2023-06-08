@@ -11,7 +11,7 @@ const io = new Server(80, {
 
 let rooms = []
 const MAX_ROOMS = 3;
-const mapData = JSON.parse(fs.readFileSync('./maps.json'));
+const mapData = JSON.parse(readFileSync('./maps.json'));
 
 function Client(sock) {
     this.sock = sock;
