@@ -195,6 +195,7 @@ ioClient.on("removeEnts", (ids) => {
     let e = entities.get(id);
     if (e === undefined) continue;
     e.sprite.remove();
+    e.shadow.remove();
     entities.delete(id);
   }
 });
