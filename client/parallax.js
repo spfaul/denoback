@@ -32,13 +32,13 @@ class ParallaxLayer {
   update(playerPos) {
     this.layerData.forEach((layer, i) => {
       if (this.loaded) {
-        layer.sprite.y = lerp(layer.sprite.y, -200 + (playerPos.y - -200) * (1 - layer.speed), .2);
-        layer.sprite.x = lerp(layer.sprite.x, 500 + (playerPos.x - 500) * (1 - layer.speed), .2);
+        layer.sprite.y = lerp(layer.sprite.y, this.layerData.center.y + (playerPos.y - this.layerData.center.y) * layer.speed, this.layerData.smoothness);
+        layer.sprite.x = lerp(layer.sprite.x, this.layerData.center.x + (playerPos.x - this.layerData.center.x) * layer.speed, this.layerData.smoothness);
 
         const layer_left_bound = layer.sprite.x - layer.sprite.w / 2
         const layer_right_bound = layer.sprite.x + layer.sprite.w / 2
         const layer_top_bound = layer.sprite.y - layer.sprite.h / 2
-        const layer_bottom_bound = layer.sprite.y - layer.sprite.h / 2
+        const layer_bottom_bound = layer.sprite.y + layer.sprite.h / 2
 
         if (layer_left_bound > camera.bound.min.x) {
           layer.sprite.x = camera.bound.min.x + layer.sprite.w / 2;

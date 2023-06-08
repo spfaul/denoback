@@ -1,5 +1,5 @@
-const ioClient = io.connect("wss://denoback.onrender.com");
-// const ioClient = io.connect("ws://172.104.54.249");
+// const ioClient = io.connect("wss://denoback.onrender.com");
+const ioClient = io.connect("ws://172.104.54.249");
 const TP_COOLDOWN_MS = 3000;
 let roomId = "";
 let entities = new Map();
@@ -238,12 +238,12 @@ function draw_game() {
   // strafing
   const speed = 1;
   let moved = false;
-  if (kb.pressing("a")) {
+  if (kb.pressing("a") || kb.pressing("A")) {
     player.vel.x -= speed;
     player.mirror.x = true;
     moved = true;
   }
-  if (kb.pressing("d")) {
+  if (kb.pressing("d") || kb.pressing("D")) {
     player.vel.x += speed;
     player.mirror.x = false;
     moved = true;
