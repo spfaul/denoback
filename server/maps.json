@@ -1,38 +1,45 @@
 {
 	"standoff": {
-		"bg": [{
-			"imgName": "assets/mtn-8.png",
-			"speed": 0.9,
-			"y": 0
-		}, {
-			"imgName": "assets/mtn-7.png",
-			"speed": 0.8,
-			"y": 0
-		}, {
-			"imgName": "assets/mtn-6.png",
-			"speed": 0.7,
-			"y": 0
-		}, {
-			"imgName": "assets/mtn-5.png",
-			"speed": 0.6,
-			"y": 0
-		}, {
-			"imgName": "assets/mtn-4.png",
-			"speed": 0.5,
-			"y": 0
-		}, {
-			"imgName": "assets/mtn-3.png",
-			"speed": 0.4,
-			"y": 0
-		}, {
-			"imgName": "assets/mtn-2.png",
-			"speed": 0.3,
-			"y": 0
-		}, {
-			"imgName": "assets/mtn-1.png",
-			"speed": 0.1,
-			"y": 0
-		}],
+		"bg": {
+    		"layers": [{
+    			"imgName": "assets/mtn-8.png",
+    			"speed": 0.9,
+    			"y": 0
+    		}, {
+    			"imgName": "assets/mtn-7.png",
+    			"speed": 0.8,
+    			"y": 0
+    		}, {
+    			"imgName": "assets/mtn-6.png",
+    			"speed": 0.7,
+    			"y": 0
+    		}, {
+    			"imgName": "assets/mtn-5.png",
+    			"speed": 0.6,
+    			"y": 0
+    		}, {
+    			"imgName": "assets/mtn-4.png",
+    			"speed": 0.5,
+    			"y": 0
+    		}, {
+    			"imgName": "assets/mtn-3.png",
+    			"speed": 0.4,
+    			"y": 0
+    		}, {
+    			"imgName": "assets/mtn-2.png",
+    			"speed": 0.3,
+    			"y": 0
+    		}, {
+    			"imgName": "assets/mtn-1.png",
+    			"speed": 0.1,
+    			"y": 0
+    		}],
+    	    "center": {
+    	        "x": 500,
+    	        "y": 100
+    	    },
+    	    "smoothness": 0.1
+    	},
 		"playArea": {
 			"xRange": [-2000, 3000],
 			"yRange": [-500, 1000]
