@@ -9,6 +9,7 @@ let player, playerPast, buls, mapData;
 let gameState = "menu";
 let menu;
 let bg;
+let pm;
 
 ioClient.on("buildMapData", (_mapData) => {
   allSprites.removeAll();
@@ -48,6 +49,7 @@ ioClient.on("buildMapData", (_mapData) => {
   text_layer.visible = false;
   text_layer.collider = "none";
   text_layer.update = drawGameText;
+  text_layer.r = 0;
 });
 
 function drawGameText() {
@@ -83,6 +85,11 @@ function createPlayer() {
   player.knockback = 0.1;
   player.lastTp = 0;
   player.respawn = () => {
+    // Nasty hack. Accounts for server sometimes
+    // signalling client respawn while client is respawning.
+    if (player.positionBuff.length < 5) return;
+    spawnParticles("death", player.x, player.y);
+    ioClient.emit("particles", "death", player.x, player.y);
     player.x = random(...mapData.spawnPoint.xRange);
     player.y = random(...mapData.spawnPoint.yRange);
     player.vel = createVector(0, 0);
@@ -95,7 +102,6 @@ function createPlayer() {
     ];
     player.knockback = 0.1;
   };
-  player.respawn();
   ioClient.on("respawn", player.respawn);
 }
 
@@ -216,13 +222,27 @@ function windowResized() {
 }
 
 function setup() {
+  // p5play.playIntro = () => {}; // Override builtin splash screen
   new Canvas("fullscreen");
   frameRate(60);
+  textFont("Changa");
   windowResized();
   camera.true_scroll = [0, 0];
   world.gravity.y = 20;
   allSprites.autoCull = false;
   menu = new Menu();
+  pm = new ParticleManager();
+  pm.createParticleGroup("tp", {
+    color: color(85, 23, 255),
+    r: 4,
+    collider: "none",
+  });
+  pm.createParticleGroup("death", {
+    color: color(255, 0, 0),
+    width: 20,
+    height: 20,
+    autoCull: false,
+  });
 }
 
 let latency = 0;
@@ -236,15 +256,37 @@ setInterval(() => {
 
 function draw() {
   background(220);
-  if (gameState === "menu") draw_menu();
-  else if (gameState === "play") draw_game();
+  if (gameState === "menu") drawMenu();
+  else if (gameState === "play") {
+    if (!gameIsLoaded()) drawLoading();
+    else drawGame();
+  }
 }
 
-function draw_menu() {
+function gameIsLoaded() {
+  return bg && bg.loaded && player && playerPast;
+}
+
+function drawLoading() {
+  // Platforms can be visible during loading as they are instantiated
+  // first so ill just hide them nicely
+  allSprites.visible = false;
+  push();
+  textSize(32);
+  textAlign(CENTER, CENTER);
+  text("Loading...", 0, 0, width, height);
+  pop();
+}
+
+function drawMenu() {
   menu.update();
 }
 
-function draw_game() {
+function drawGame() {
+  if (!allSprites.visible) {
+    allSprites.visible = true;
+  }
+
   bg.update(player.pos);
 
   // strafing
@@ -302,9 +344,22 @@ function draw_game() {
   // self punch knockback
   for (const p of allPlayers) {
     if (p === player) continue;
-    if (player.colliding(p) && p.ani.name === "punch") {
+    /*
+    Punched directly left of punching -> punchAngle = 0 degrees
+    Punched directly right of punching -> punchAngle = -180/180 degrees
+    For punch to be considered valid (prevent top-down punches):
+      punchAngle = Punched must be directly left/right of punching +- MAX_PUNCH_ANGLE
+    */
+    const MAX_PUNCH_ANGLE = 40;
+    const punchAngle = player.angleTo(p.x, p.y);
+    const isValidPunchAngle =
+      (-MAX_PUNCH_ANGLE < punchAngle && punchAngle < MAX_PUNCH_ANGLE) ||
+      -180 + MAX_PUNCH_ANGLE > punchAngle ||
+      punchAngle > 180 - MAX_PUNCH_ANGLE;
+    if (player.colliding(p) && p.ani.name === "punch" && isValidPunchAngle) {
+      const PUNCH_KNOCKBACK_MULTIPLIER = 1.3;
       player.moveAway(p.x, p.y, player.knockback);
-      player.knockback *= 1.2;
+      player.knockback *= PUNCH_KNOCKBACK_MULTIPLIER;
     }
   }
   // send player info
@@ -380,15 +435,43 @@ function mousePressed() {
 function tp() {
   const now_ts = +new Date();
   if (now_ts - player.lastTp < TP_COOLDOWN_MS) return;
+  spawnParticles("tp", player.x, player.y);
+  ioClient.emit("particles", "tp", player.x, player.y);
   player.pos = playerPast.pos;
   playerPast.visible = false;
   player.lastTp = now_ts;
 }
 
+function spawnParticles(name, x, y) {
+  if (name === "tp")
+    pm.spawn(
+      "tp",
+      10,
+      [
+        [-50, 50],
+        [-50, 50],
+      ],
+      { x: x, y: y, life: 60 * 3 }
+    );
+  else if (name === "death")
+    pm.spawn(
+      "death",
+      20,
+      [
+        [-100, 100],
+        [0, -200],
+      ],
+      { x: x, y: y, life: 60 * 3 }
+    );
+}
+
+ioClient.on("particles", spawnParticles);
+
 function punch() {
   if (player.ani.name === "punch") return;
-  if (player.mirror.x) player.vel.x -= 5;
-  else player.vel.x += 5;
+  const PUNCH_THRUST = 5;
+  if (player.mirror.x) player.vel.x -= PUNCH_THRUST;
+  else player.vel.x += PUNCH_THRUST;
   player.ani = "punch";
   player.ani.play(0);
 }
