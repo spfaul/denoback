@@ -65,6 +65,13 @@ io.on("connection", (socket) => {
             cb()
     });
 
+    socket.on("particles", (pType, x, y) => {
+        for (const c of client.room.clients) {
+            if (c === client) continue;
+            c.sock.emit("particles", pType, x, y);
+        }
+    });
+
     socket.on("createRoom", () => {
         if (rooms.length >= MAX_ROOMS) return;
         if (client.room)
