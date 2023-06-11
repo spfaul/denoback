@@ -1,15 +1,22 @@
-const ioClient = io.connect("wss://denoback.onrender.com");
-// const ioClient = io.connect("ws://172.104.54.249");
-const TP_COOLDOWN_MS = 3000;
-let roomId = "";
+// const ioClient = io.connect("wss://denoback.onrender.com");
+const ioClient = io.connect("ws://172.104.54.249");
 let entities = new Map();
-let charImg;
 let allPlayers = [];
-let player, playerPast, buls, mapData;
+let player, playerPast, mapData;
 let gameState = "menu";
+let charImg;
 let menu;
 let bg;
 let pm;
+let startGameBtn;
+const TP_COOLDOWN_MS = 3000;
+
+document.addEventListener("visibilitychange", () => {  
+  if (document.visibilityState === "visible")
+    ioClient.emit("activeState", true);
+  else if (document.visibilityState === "hidden")
+    ioClient.emit("activeState", false);
+})
 
 ioClient.on("buildMapData", (_mapData) => {
   allSprites.removeAll();
@@ -61,12 +68,32 @@ function drawGameText() {
     return;
   }
 
+  push()
+  let playerCountText = "";
+  if (entities.size === 0) {
+    playerCountText += "Waiting For More Players...\n";
+  }
+  playerCountText += `Players: ${entities.size+1}`;
+  textAlign(LEFT, TOP);
+  textSize(25);
+  text(playerCountText, 20, 100, width, height);
+  if (ioClient.isRoomHost && entities.size) {
+    startGameBtn.setDimensions(
+      width / 2 - 100,
+      height / 10,
+      200,
+      70
+    );
+    startGameBtn.update();
+  }
+
   textSize(25);
   textAlign(LEFT, TOP);
-  text("Room Id: " + roomId, 20, 20, width, 50);
+  text("Room Id: " + ioClient.roomId, 20, 20, width, 50);
   textAlign(RIGHT, TOP);
   text(`Danger: ${Math.round(player.knockback * 100)}%`, 0, 20, width - 20, 50);
   text(`Ping: ${latency}ms`, 0, 100, width - 20, 50);
+  pop()
 }
 
 function createPlayer() {
@@ -84,6 +111,7 @@ function createPlayer() {
   ];
   player.knockback = 0.1;
   player.lastTp = 0;
+  player.locked = false;
   player.respawn = () => {
     // Nasty hack. Accounts for server sometimes
     // signalling client respawn while client is respawning.
@@ -139,6 +167,7 @@ function spawnSprite(data) {
 
 function jump() {
   if (player.jumps >= 2) return;
+
   player.vel.y = -10;
   player.jumps++;
 }
@@ -175,6 +204,13 @@ ioClient.on("pos", (selfId, datas) => {
   }
 });
 
+ioClient.on("setPlayerLock", doLock => {
+  player.static = doLock;
+});
+
+ioClient.on("updateCountdown", n => {
+});
+
 ioClient.on("createBul", (x, y, vx, vy) => {
   let b = new buls.Sprite();
   b.x = x;
@@ -188,10 +224,9 @@ ioClient.on("disconnect", () => {
   entities = new Map();
 });
 
-ioClient.on("updateRoom", (newRoomId) => {
-  // const roomIdInput = document.getElementById("joinRoomId");
-  // roomIdInput.value = "";
-  roomId = newRoomId;
+ioClient.on("updateRoom", (newRoomId, isHost) => {
+  ioClient.isRoomHost = isHost;
+  ioClient.roomId = newRoomId;
   pendingInps = [];
   entities = new Map();
 });
@@ -222,6 +257,7 @@ function windowResized() {
 }
 
 function setup() {
+  ioClient.roomId = "";
   // p5play.playIntro = () => {}; // Override builtin splash screen
   new Canvas("fullscreen");
   frameRate(60);
@@ -243,6 +279,21 @@ function setup() {
     height: 20,
     autoCull: false,
   });
+  startGameBtn = new Button(
+    width / 2 - 100,
+    height / 10,
+    200,
+    70,
+    () => {
+      ioClient.emit("requestGameStart");
+    },
+    {
+      hoverColor: "#EEECE0",
+      defaultColor: "white",
+      text: "Start Game",
+      textSize: 28,
+    }
+  );
 }
 
 let latency = 0;
@@ -405,6 +456,7 @@ function drawGame() {
     }
   }
 
+  
   if (+new Date() - player.lastTp >= TP_COOLDOWN_MS) playerPast.visible = true;
   if (player.positionBuff.length > 120) player.positionBuff.shift();
   if (frameCount % 30) {
@@ -422,7 +474,7 @@ function drawGame() {
 }
 
 function mousePressed() {
-  if (!player || !roomId) return;
+  if (!player || !ioClient.roomId) return;
   if (mouseButton === LEFT) punch();
   else if (mouseButton === RIGHT) tp();
   // fire bullet
