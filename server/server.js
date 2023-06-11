@@ -15,6 +15,7 @@ const mapData = JSON.parse(readFileSync('./maps.json'));
 
 function Client(sock) {
     this.sock = sock;
+    this.active = true;
     this.id = "PLAYER-" + this.sock.id;
     this.x = 0;
     this.y = 0;
@@ -30,13 +31,41 @@ function Client(sock) {
 class Room {
     constructor(id, mapName) {
         this.clients = [];
+        this.host = null;
         this.id = id;
         this.mapName = mapName;
+        this.state = "waiting";
+    }
+
+    startGame() {
+        if (this.state !== "waiting")
+            return;
+        this.state = "play";
+        for (const c of this.clients) {
+            c.sock.emit("respawn");
+            c.sock.emit("setPlayerLock", true);
+        }
+        const COUNTDOWN_SECS = 5;
+        for (let i=COUNTDOWN_SECS; i>0; i--) {
+            setTimeout(() => {
+                for (const c of this.clients) {
+                    c.sock.emit("updateCountdown", COUNTDOWN_SECS+1-i);
+                }
+            }, (i-1)*1000)
+        }
+        setTimeout(() => {
+            for (const c of this.clients)
+                c.sock.emit("setPlayerLock", false);
+        }, COUNTDOWN_SECS*1000);
+        
     }
 
     addClient(c) {
         if (c.room) {
-            c.room.removeClient(c);
+           c.room.removeClient(c);
+        }
+        if (this.clients.length === 0) {
+            this.host = c;
         }
         this.clients.push(c);
         c.room = this;
@@ -45,8 +74,14 @@ class Room {
     removeClient(c) {
         this.clients.splice(this.clients.indexOf(c), 1);
         c.room = null;
+        if (this.host === c) {
+            if (this.clients.length === 0) {
+                this.host = null;
+            } else {
+                this.host = this.clients[0];
+            }
+        }
     }
-
 }
 
 // event fired every time a new client connects:
@@ -59,6 +94,10 @@ io.on("connection", (socket) => {
             rooms.splice(rooms.indexOf(client.room), 1);
         client.room.removeClient(client);
     }
+
+    socket.on("activeState", isActive => {
+       client.active = isActive; 
+    });
 
     socket.on("ping", cb => {
         if (typeof cb === 'function')
@@ -79,7 +118,7 @@ io.on("connection", (socket) => {
         let newRoom = new Room((+new Date).toString(36).slice(-5), "standoff")
         newRoom.addClient(client);
         rooms.push(newRoom);
-        socket.emit("updateRoom", newRoom.id);
+        socket.emit("updateRoom", newRoom.id, newRoom.host === client);
         socket.emit("buildMapData", mapData[newRoom.mapName]);
     })
 
@@ -90,13 +129,18 @@ io.on("connection", (socket) => {
                 if (client.room)
                     leaveRoom();
                 r.addClient(client);
-                socket.emit("updateRoom", r.id);
+                socket.emit("updateRoom", r.id, r.host === client);
                 socket.emit("buildMapData", mapData[r.mapName]);
                 return;
             }
         }
-        console.log(rooms)
     })
+
+    socket.on("requestGameStart", () => {
+        if (!client.room || client !== client.room.host)
+            return;
+        client.room.startGame();
+    });
 
     // when socket disconnects, remove it from the list:
     socket.on("disconnect", () => {
@@ -124,28 +168,30 @@ io.on("connection", (socket) => {
 
 function tick(room) {
     let render_timestamp = +new Date();
-    let allPos = room.clients.map(c => {
-        let _mapData = mapData[room.mapName];
-        if (c.x < _mapData.playArea.xRange[0] || 
-            c.x > _mapData.playArea.xRange[1] || 
-            c.y < _mapData.playArea.yRange[0] || 
-            c.y > _mapData.playArea.yRange[1]) {
-            c.sock.emit("respawn");
-        }
-        c.lastUpdated = render_timestamp;
-        return {
-           id: c.id,
-           x: c.x,
-           y: c.y,
-           vx: c.vx,
-           vy: c.vy,
-           tx: c.tx,
-           ty: c.ty,
-           tvis: c.tvis,
-           lastUpdated: c.lastUpdated,
-           ani: c.ani,
-           flipXAni: c.flipXAni 
-        };
+    let allPos = room.clients
+        // .filter(c => c.active)
+        .map(c => {
+            let _mapData = mapData[room.mapName];
+            if (c.x < _mapData.playArea.xRange[0] || 
+                c.x > _mapData.playArea.xRange[1] || 
+                c.y < _mapData.playArea.yRange[0] || 
+                c.y > _mapData.playArea.yRange[1]) {
+                c.sock.emit("respawn");
+            }
+            c.lastUpdated = render_timestamp;
+            return {
+               id: c.id,
+               x: c.x,
+               y: c.y,
+               vx: c.vx,
+               vy: c.vy,
+               tx: c.tx,
+               ty: c.ty,
+               tvis: c.tvis,
+               lastUpdated: c.lastUpdated,
+               ani: c.ani,
+               flipXAni: c.flipXAni 
+            };
     });
     for (const c of room.clients) {
         c.sock.emit("pos", c.id, allPos);
