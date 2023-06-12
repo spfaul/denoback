@@ -1,14 +1,14 @@
-// const ioClient = io.connect("wss://denoback.onrender.com");
-const ioClient = io.connect("ws://172.104.54.249");
+const ioClient = io.connect("wss://denoback.onrender.com");
+// const ioClient = io.connect("ws://172.104.54.249");
 let entities = new Map();
-let allPlayers = [];
 let player, playerPast, mapData;
 let gameState = "menu";
 let charImg;
 let menu;
 let bg;
 let pm;
-let startGameBtn;
+let startGameBtn
+let countdownStr = null;
 const TP_COOLDOWN_MS = 3000;
 
 document.addEventListener("visibilitychange", () => {  
@@ -38,9 +38,7 @@ ioClient.on("buildMapData", (_mapData) => {
   // buls.r = 5;
   createPlayer();
 
-  playerPast = spawnSprite({
-    id: "PAST_PLAYER" + ioClient.id,
-  });
+  playerPast = spawnSprite("PAST_PLAYER" + ioClient.id);
 
   gameState = "play";
   menu.hide();
@@ -69,6 +67,13 @@ function drawGameText() {
   }
 
   push()
+  textSize(25);
+  textAlign(LEFT, TOP);
+  text("Room Id: " + ioClient.roomId, 20, 20, width, 50);
+  textAlign(RIGHT, TOP);
+  text(`Danger: ${Math.round(player.knockback * 100)}%`, 0, 20, width - 20, 50);
+  text(`Ping: ${latency}ms`, 0, 100, width - 20, 50);
+
   let playerCountText = "";
   if (entities.size === 0) {
     playerCountText += "Waiting For More Players...\n";
@@ -77,7 +82,7 @@ function drawGameText() {
   textAlign(LEFT, TOP);
   textSize(25);
   text(playerCountText, 20, 100, width, height);
-  if (ioClient.isRoomHost && entities.size) {
+  if (ioClient.isRoomHost && entities.size && countdownStr === null) {
     startGameBtn.setDimensions(
       width / 2 - 100,
       height / 10,
@@ -86,22 +91,16 @@ function drawGameText() {
     );
     startGameBtn.update();
   }
-
-  textSize(25);
-  textAlign(LEFT, TOP);
-  text("Room Id: " + ioClient.roomId, 20, 20, width, 50);
-  textAlign(RIGHT, TOP);
-  text(`Danger: ${Math.round(player.knockback * 100)}%`, 0, 20, width - 20, 50);
-  text(`Ping: ${latency}ms`, 0, 100, width - 20, 50);
+  if (countdownStr) {
+    textSize(70);
+    textAlign(CENTER, CENTER);
+    text(countdownStr, 0, 0, width, height*3/4);
+  }
   pop()
 }
 
 function createPlayer() {
-  player = spawnSprite({
-    x: 0,
-    y: 0,
-    id: "PLAYER" + ioClient.id,
-  });
+  player = spawnSprite("PLAYER" + ioClient.id, 0, 0);
   player.positionBuff = [
     {
       ts: +new Date(),
@@ -112,14 +111,14 @@ function createPlayer() {
   player.knockback = 0.1;
   player.lastTp = 0;
   player.locked = false;
-  player.respawn = () => {
+  player.respawn = (x, y) => {
     // Nasty hack. Accounts for server sometimes
     // signalling client respawn while client is respawning.
     if (player.positionBuff.length < 5) return;
     spawnParticles("death", player.x, player.y);
     ioClient.emit("particles", "death", player.x, player.y);
-    player.x = random(...mapData.spawnPoint.xRange);
-    player.y = random(...mapData.spawnPoint.yRange);
+    player.x = x;
+    player.y = y;
     player.vel = createVector(0, 0);
     player.positionBuff = [
       {
@@ -133,9 +132,9 @@ function createPlayer() {
   ioClient.on("respawn", player.respawn);
 }
 
-function spawnSprite(data) {
-  let s = new Sprite(data.x, data.y);
-  if (data.id.startsWith("PLAYER")) {
+function spawnSprite(id, x, y) {
+  let s = new Sprite(x, y);
+  if (id.startsWith("PLAYER")) {
     s.w = 32;
     s.h = 32;
     s.anis.w = 24;
@@ -153,11 +152,10 @@ function spawnSprite(data) {
     s.friction = 0;
     s.rotationLock = true;
     s.jumps = 0;
-    allPlayers.push(s);
-  } else if (data.id.startsWith("PAST_PLAYER")) {
+  } else if (id.startsWith("PAST_PLAYER")) {
     s.r = 5;
     s.collider = "none";
-    if (data.id === "PAST_PLAYER" + ioClient.id)
+    if (id === "PAST_PLAYER" + ioClient.id)
       s.color = color(0, 0, 250, 100);
     else s.color = color(250, 0, 0, 100);
     s.layer = 2;
@@ -178,8 +176,8 @@ ioClient.on("pos", (selfId, datas) => {
     let currData = entities.get(data.id);
     if (currData === undefined) {
       entities.set(data.id, {
-        sprite: spawnSprite(data),
-        shadow: spawnSprite({ id: "PAST_PLAYER" + data.id }),
+        sprite: spawnSprite("PLAYER" + data.id, data.x, data.y),
+        shadow: spawnSprite("PAST_PLAYER" + data.id),
         positionBuff: [],
         lastUpdated: data.lastUpdated,
       });
@@ -208,7 +206,8 @@ ioClient.on("setPlayerLock", doLock => {
   player.static = doLock;
 });
 
-ioClient.on("updateCountdown", n => {
+ioClient.on("updateCountdown", s => {
+  countdownStr = s;
 });
 
 ioClient.on("createBul", (x, y, vx, vy) => {
@@ -393,8 +392,9 @@ function drawGame() {
   camera.y = camera.true_scroll[1];
 
   // self punch knockback
-  for (const p of allPlayers) {
-    if (p === player) continue;
+  for (const pData of entities.values()) {
+    const pSprite = pData.sprite;
+    if (pSprite === player) continue;
     /*
     Punched directly left of punching -> punchAngle = 0 degrees
     Punched directly right of punching -> punchAngle = -180/180 degrees
@@ -402,14 +402,14 @@ function drawGame() {
       punchAngle = Punched must be directly left/right of punching +- MAX_PUNCH_ANGLE
     */
     const MAX_PUNCH_ANGLE = 40;
-    const punchAngle = player.angleTo(p.x, p.y);
+    const punchAngle = player.angleTo(pSprite.x, pSprite.y);
     const isValidPunchAngle =
       (-MAX_PUNCH_ANGLE < punchAngle && punchAngle < MAX_PUNCH_ANGLE) ||
       -180 + MAX_PUNCH_ANGLE > punchAngle ||
       punchAngle > 180 - MAX_PUNCH_ANGLE;
-    if (player.colliding(p) && p.ani.name === "punch" && isValidPunchAngle) {
+    if (player.colliding(pSprite) && pSprite.ani.name === "punch" && isValidPunchAngle) {
       const PUNCH_KNOCKBACK_MULTIPLIER = 1.3;
-      player.moveAway(p.x, p.y, player.knockback);
+      player.moveAway(pSprite.x, pSprite.y, player.knockback);
       player.knockback *= PUNCH_KNOCKBACK_MULTIPLIER;
     }
   }
