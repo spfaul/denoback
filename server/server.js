@@ -17,7 +17,9 @@ const mapData = JSON.parse(readFileSync('./maps.json'));
 function Client(sock) {
     this.sock = sock;
     this.active = true;
+    this.respawning = false;
     this.id = "PLAYER-" + this.sock.id;
+    this.lives = 3;
     this.x = 0;
     this.y = 0;
     this.vx = 0;
@@ -49,6 +51,7 @@ class Room {
     }
 
     respawn(client) {
+        if (client.respawning) return;
         let x, y;
         while (x === undefined || !this.validateSpawnpoint(x, y)) {
             x = random.int(...mapData[this.mapName].spawnPoint.xRange);
@@ -57,6 +60,22 @@ class Room {
         client.sock.emit("respawn", x, y);
         client.x = x;
         client.y = y;
+        if (this.state === "play") {
+            client.lives -= 1;
+            if (client.lives === 0) {
+                client.sock.emit("dead");
+            }
+            const players_alive = this.clients.filter(c => c.lives > 0);
+            if (players_alive.length === 1) {
+                for (const c of this.clients) {
+                    c.sock.emit("reset");
+                    c.sock.emit("updateCountdown", null);
+                    c.lives = 3;
+                }
+                this.state = "waiting";    
+            }
+        }
+        client.respawning = true;
     }
 
     startGame() {
@@ -67,10 +86,11 @@ class Room {
             c.x = 0;
             c.y = 0;
         });
-        for (const c of this.clients) {
+        this.clients.map(c => {
             this.respawn(c);
             c.sock.emit("setPlayerLock", true);
-        }
+            c.lives = 3;
+        });
         const COUNTDOWN_SECS = 5;
         for (let i=COUNTDOWN_SECS; i>0; i--) {
             setTimeout(() => {
@@ -207,10 +227,13 @@ function tick(room) {
                 c.y < _mapData.playArea.yRange[0] || 
                 c.y > _mapData.playArea.yRange[1]) {
                 c.room.respawn(c);
+            } else if (c.respawning) {
+                c.respawning = false;
             }
             c.lastUpdated = render_timestamp;
             return {
                id: c.id,
+               lives: c.lives,
                x: c.x,
                y: c.y,
                vx: c.vx,
