@@ -45,8 +45,8 @@
 			"yRange": [-500, 1000]
 		},
 		"spawnPoint": {
-			"xRange": [400, 600],
-			"yRange": [-200, -200]
+			"xRange": [0, 1000],
+			"yRange": [-300, -300]
 		},
 		"groups": {
 			"bricks": {

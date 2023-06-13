@@ -1,6 +1,7 @@
-const { readFileSync } = require("fs");
-const { createServer } = require("http");
-const { Server } = require("socket.io");
+import { readFileSync } from "fs";
+import { createServer } from "http";
+import { Server } from "socket.io";
+import random from 'random';
 
 const io = new Server(80, {
     cors: {
@@ -37,27 +38,56 @@ class Room {
         this.state = "waiting";
     }
 
+    validateSpawnpoint(x, y) {
+        const MIN_SPAWN_DIST = 50;
+        for (const c of this.clients) {
+            const d = Math.hypot(x-c.x, y-c.y);
+            if (d < MIN_SPAWN_DIST)
+                return false;
+        }
+        return true;
+    }
+
+    respawn(client) {
+        let x, y;
+        while (x === undefined || !this.validateSpawnpoint(x, y)) {
+            x = random.int(...mapData[this.mapName].spawnPoint.xRange);
+            y = random.int(...mapData[this.mapName].spawnPoint.yRange);
+        }
+        client.sock.emit("respawn", x, y);
+        client.x = x;
+        client.y = y;
+    }
+
     startGame() {
         if (this.state !== "waiting")
             return;
         this.state = "play";
+        this.clients.map(c => {
+            c.x = 0;
+            c.y = 0;
+        });
         for (const c of this.clients) {
-            c.sock.emit("respawn");
+            this.respawn(c);
             c.sock.emit("setPlayerLock", true);
         }
         const COUNTDOWN_SECS = 5;
         for (let i=COUNTDOWN_SECS; i>0; i--) {
             setTimeout(() => {
                 for (const c of this.clients) {
-                    c.sock.emit("updateCountdown", COUNTDOWN_SECS+1-i);
+                    c.sock.emit("updateCountdown", String(COUNTDOWN_SECS+1-i));
                 }
             }, (i-1)*1000)
         }
         setTimeout(() => {
-            for (const c of this.clients)
+            for (const c of this.clients) {
                 c.sock.emit("setPlayerLock", false);
+                c.sock.emit("updateCountdown", "Fight!");
+                setTimeout(() => {
+                    c.sock.emit("updateCountdown", "");
+                }, 1000);
+            }
         }, COUNTDOWN_SECS*1000);
-        
     }
 
     addClient(c) {
@@ -176,7 +206,7 @@ function tick(room) {
                 c.x > _mapData.playArea.xRange[1] || 
                 c.y < _mapData.playArea.yRange[0] || 
                 c.y > _mapData.playArea.yRange[1]) {
-                c.sock.emit("respawn");
+                c.room.respawn(c);
             }
             c.lastUpdated = render_timestamp;
             return {
