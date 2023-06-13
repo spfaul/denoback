@@ -1,5 +1,5 @@
-const ioClient = io.connect("wss://denoback.onrender.com");
-// const ioClient = io.connect("ws://172.104.54.249");
+// const ioClient = io.connect("wss://denoback.onrender.com");
+const ioClient = io.connect("ws://172.104.54.249");
 let entities = new Map();
 let player, playerPast, mapData;
 let gameState = "menu";
@@ -7,16 +7,16 @@ let charImg;
 let menu;
 let bg;
 let pm;
-let startGameBtn
+let startGameBtn;
 let countdownStr = null;
 const TP_COOLDOWN_MS = 3000;
 
-document.addEventListener("visibilitychange", () => {  
+document.addEventListener("visibilitychange", () => {
   if (document.visibilityState === "visible")
     ioClient.emit("activeState", true);
   else if (document.visibilityState === "hidden")
     ioClient.emit("activeState", false);
-})
+});
 
 ioClient.on("buildMapData", (_mapData) => {
   allSprites.removeAll();
@@ -37,6 +37,7 @@ ioClient.on("buildMapData", (_mapData) => {
   // buls.color = "cyan";
   // buls.r = 5;
   createPlayer();
+  camera.target = player;
 
   playerPast = spawnSprite("PAST_PLAYER" + ioClient.id);
 
@@ -66,7 +67,7 @@ function drawGameText() {
     return;
   }
 
-  push()
+  push();
   textSize(25);
   textAlign(LEFT, TOP);
   text("Room Id: " + ioClient.roomId, 20, 20, width, 50);
@@ -78,25 +79,20 @@ function drawGameText() {
   if (entities.size === 0) {
     playerCountText += "Waiting For More Players...\n";
   }
-  playerCountText += `Players: ${entities.size+1}`;
+  playerCountText += `Players: ${entities.size + 1}`;
   textAlign(LEFT, TOP);
   textSize(25);
   text(playerCountText, 20, 100, width, height);
   if (ioClient.isRoomHost && entities.size && countdownStr === null) {
-    startGameBtn.setDimensions(
-      width / 2 - 100,
-      height / 10,
-      200,
-      70
-    );
+    startGameBtn.setDimensions(width / 2 - 100, height / 10, 200, 70);
     startGameBtn.update();
   }
   if (countdownStr) {
     textSize(70);
     textAlign(CENTER, CENTER);
-    text(countdownStr, 0, 0, width, height*3/4);
+    text(countdownStr, 0, 0, width, (height * 3) / 4);
   }
-  pop()
+  pop();
 }
 
 function createPlayer() {
@@ -155,10 +151,18 @@ function spawnSprite(id, x, y) {
   } else if (id.startsWith("PAST_PLAYER")) {
     s.r = 5;
     s.collider = "none";
-    if (id === "PAST_PLAYER" + ioClient.id)
-      s.color = color(0, 0, 250, 100);
+    if (id === "PAST_PLAYER" + ioClient.id) s.color = color(0, 0, 250, 100);
     else s.color = color(250, 0, 0, 100);
     s.layer = 2;
+  } else if (id.startsWith("STATS")) {
+    s.collider = "none";
+    s.draw = () => {
+      let entData = entities.get(id.substring(5));
+      if (!entData) return;
+      fill("black");
+      textAlign(CENTER, CENTER);
+      text(`Lives: ${entData.lives}`, 0, -50, 100, 100);
+    };
   }
   return s;
 }
@@ -178,8 +182,10 @@ ioClient.on("pos", (selfId, datas) => {
       entities.set(data.id, {
         sprite: spawnSprite("PLAYER" + data.id, data.x, data.y),
         shadow: spawnSprite("PAST_PLAYER" + data.id),
+        stats: spawnSprite("STATS" + data.id, data.x, data.y),
         positionBuff: [],
         lastUpdated: data.lastUpdated,
+        lives: data.lives,
       });
       continue;
     }
@@ -189,9 +195,12 @@ ioClient.on("pos", (selfId, datas) => {
     currData.shadow.visible = data.tvis;
     currData.sprite.x = data.x;
     currData.sprite.y = data.y;
+    currData.stats.pos = currData.sprite.pos;
     currData.sprite.vel.x = data.vx;
     currData.sprite.vel.y = data.vy;
     currData.sprite.ani = data.ani;
+    currData.lives = data.lives;
+    currData.sprite.visible = data.lives !== 0;
     currData.sprite.mirror.x = data.flipXAni;
     currData.lastUpdated = data.lastUpdated;
     currData.positionBuff.push([
@@ -202,11 +211,11 @@ ioClient.on("pos", (selfId, datas) => {
   }
 });
 
-ioClient.on("setPlayerLock", doLock => {
+ioClient.on("setPlayerLock", (doLock) => {
   player.static = doLock;
 });
 
-ioClient.on("updateCountdown", s => {
+ioClient.on("updateCountdown", (s) => {
   countdownStr = s;
 });
 
@@ -236,8 +245,22 @@ ioClient.on("removeEnts", (ids) => {
     if (e === undefined) continue;
     e.sprite.remove();
     e.shadow.remove();
+    e.stats.remove();
     entities.delete(id);
   }
+});
+
+ioClient.on("dead", () => {
+  if (!entities.size) return;
+  player.visible = false;
+  player.collider = "static";
+  camera.target = Array.from(entities.values())[0].sprite;
+});
+
+ioClient.on("reset", () => {
+  player.visible = true;
+  player.collider = "dynamic";
+  camera.target = player;
 });
 
 function preload() {
@@ -386,8 +409,8 @@ function drawGame() {
   }
   if (kb.presses(" ")) jump();
   // camera adjust
-  camera.true_scroll[0] += (player.x - camera.true_scroll[0]) / 15;
-  camera.true_scroll[1] += (player.y - camera.true_scroll[1]) / 15;
+  camera.true_scroll[0] += (camera.target.x - camera.true_scroll[0]) / 15;
+  camera.true_scroll[1] += (camera.target.y - camera.true_scroll[1]) / 15;
   camera.x = camera.true_scroll[0];
   camera.y = camera.true_scroll[1];
 
@@ -407,7 +430,11 @@ function drawGame() {
       (-MAX_PUNCH_ANGLE < punchAngle && punchAngle < MAX_PUNCH_ANGLE) ||
       -180 + MAX_PUNCH_ANGLE > punchAngle ||
       punchAngle > 180 - MAX_PUNCH_ANGLE;
-    if (player.colliding(pSprite) && pSprite.ani.name === "punch" && isValidPunchAngle) {
+    if (
+      player.colliding(pSprite) &&
+      pSprite.ani.name === "punch" &&
+      isValidPunchAngle
+    ) {
       const PUNCH_KNOCKBACK_MULTIPLIER = 1.3;
       player.moveAway(pSprite.x, pSprite.y, player.knockback);
       player.knockback *= PUNCH_KNOCKBACK_MULTIPLIER;
@@ -456,7 +483,6 @@ function drawGame() {
     }
   }
 
-  
   if (+new Date() - player.lastTp >= TP_COOLDOWN_MS) playerPast.visible = true;
   if (player.positionBuff.length > 120) player.positionBuff.shift();
   if (frameCount % 30) {
