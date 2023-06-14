@@ -3,7 +3,7 @@ const ioClient = io.connect("wss://denoback.onrender.com");
 let entities = new Map();
 let player, playerPast, mapData;
 let gameState = "menu";
-let charImg;
+let dinoImgs;
 let menu;
 let bg;
 let pm;
@@ -96,7 +96,7 @@ function drawGameText() {
 }
 
 function createPlayer() {
-  player = spawnSprite("PLAYER" + ioClient.id, 0, 0);
+  player = spawnSprite("PLAYER" + ioClient.id, 0, 0, menu.selectedDino);
   player.positionBuff = [
     {
       ts: +new Date(),
@@ -128,14 +128,14 @@ function createPlayer() {
   ioClient.on("respawn", player.respawn);
 }
 
-function spawnSprite(id, x, y) {
+function spawnSprite(id, x, y, dino = "") {
   let s = new Sprite(x, y);
   if (id.startsWith("PLAYER")) {
     s.w = 32;
     s.h = 32;
     s.anis.w = 24;
     s.anis.h = 24;
-    s.spriteSheet = charImg;
+    s.spriteSheet = dinoImgs[dino];
     s.addAnis({
       idle: { row: 0, frames: 1 },
       run: { row: 0, col: 3, frames: 7 },
@@ -180,7 +180,7 @@ ioClient.on("pos", (selfId, datas) => {
     let currData = entities.get(data.id);
     if (currData === undefined) {
       entities.set(data.id, {
-        sprite: spawnSprite("PLAYER" + data.id, data.x, data.y),
+        sprite: spawnSprite("PLAYER" + data.id, data.x, data.y, data.dino),
         shadow: spawnSprite("PAST_PLAYER" + data.id),
         stats: spawnSprite("STATS" + data.id, data.x, data.y),
         positionBuff: [],
@@ -232,22 +232,23 @@ ioClient.on("disconnect", () => {
   entities = new Map();
 });
 
-ioClient.on("updateRoom", (newRoomId, isHost) => {
-  ioClient.isRoomHost = isHost;
+ioClient.on("updateRoom", (newRoomId) => {
   ioClient.roomId = newRoomId;
   pendingInps = [];
   entities = new Map();
 });
 
-ioClient.on("removeEnts", (ids) => {
-  for (const id of ids) {
-    let e = entities.get(id);
-    if (e === undefined) continue;
-    e.sprite.remove();
-    e.shadow.remove();
-    e.stats.remove();
-    entities.delete(id);
-  }
+ioClient.on("updateRoomRole", (isHost) => {
+  ioClient.isRoomHost = isHost;
+});
+
+ioClient.on("removeEnt", (id) => {
+  let e = entities.get(id);
+  if (e === undefined) return;
+  e.sprite.remove();
+  e.shadow.remove();
+  e.stats.remove();
+  entities.delete(id);
 });
 
 ioClient.on("dead", () => {
@@ -264,7 +265,14 @@ ioClient.on("reset", () => {
 });
 
 function preload() {
-  charImg = loadImage("./assets/doux.png");
+  dinoImgs = {
+    doux: loadImage("./assets/doux.png"),
+    mort: loadImage("./assets/mort.png"),
+    tard: loadImage("./assets/tard.png"),
+    vita: loadImage("./assets/vita.png"),
+  };
+  menu = new Menu();
+  menu.preload();
 }
 
 function windowResized() {
@@ -288,7 +296,6 @@ function setup() {
   camera.true_scroll = [0, 0];
   world.gravity.y = 20;
   allSprites.autoCull = false;
-  menu = new Menu();
   pm = new ParticleManager();
   pm.createParticleGroup("tp", {
     color: color(85, 23, 255),
@@ -438,6 +445,7 @@ function drawGame() {
       const PUNCH_KNOCKBACK_MULTIPLIER = 1.3;
       player.moveAway(pSprite.x, pSprite.y, player.knockback);
       player.knockback *= PUNCH_KNOCKBACK_MULTIPLIER;
+      player.knockback = min(player.knockback, 10);
     }
   }
   // send player info

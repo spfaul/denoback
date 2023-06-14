@@ -51,7 +51,7 @@ class Menu {
       height / 5,
       (width * 2) / 5,
       height / 10,
-      this.requestRoom,
+      () => this.requestRoom(),
       {
         hoverColor: "#EEECE0",
         defaultColor: "white",
@@ -66,18 +66,29 @@ class Menu {
     this.roomCodeInp.style("border-radius", "50px");
     this.roomCodeInp.attribute("placeholder", "Room Code (e.g. abc12)");
     this.roomCodeInp.attribute("maxlength", 5);
-    this.roomCodeInp.input(this.joinRoom);
+    this.roomCodeInp.input(() => this.joinRoom());
+    this.selectedDino = "doux";
+    this.updateDino(this.selectedDino);
+  }
+
+  preload() {
+    this.dinoPreviewImgs = {
+      doux: loadImage("./assets/doux_preview.png"),
+      mort: loadImage("./assets/mort_preview.png"),
+      tard: loadImage("./assets/tard_preview.png"),
+      vita: loadImage("./assets/vita_preview.png"),
+    };
   }
 
   requestRoom() {
     if (!ioClient.connected) return;
-    ioClient.emit("createRoom");
+    ioClient.emit("createRoom", this.selectedDino);
   }
 
   joinRoom() {
-    const roomId = this.value();
+    const roomId = this.roomCodeInp.value();
     if (roomId.length !== 5) return;
-    ioClient.emit("joinRoom", roomId);
+    ioClient.emit("joinRoom", roomId, this.selectedDino);
   }
 
   hide() {
@@ -99,6 +110,16 @@ class Menu {
       el = el.offsetParent;
     }
     return { top: _y, left: _x };
+  }
+
+  updateDino(dinoName) {
+    this.selectedDino = dinoName;
+    this.dino = loadAnimation(dinoImgs[this.selectedDino], {
+      frameSize: [24, 24],
+      frames: 18,
+    });
+    this.dino.frameDelay = 10;
+    this.dino.scale = 3;
   }
 
   update() {
@@ -130,6 +151,26 @@ class Menu {
       textAlign(CENTER, CENTER);
       // let inp_off = this.getOffset(this.roomCodeInp.elt);
       text("X", width / 2 + inp_width_px / 2 + 20, height / 2, 30, height / 10);
+    }
+    this.dino.x = width / 8;
+    this.dino.y = height / 5;
+    animation(this.dino, this.dino.x, this.dino.y);
+    // imageMode(CENTER, CENTER);
+    let offx = this.dino.x - 100;
+    let offy = this.dino.y + 50;
+    for (let [dinoName, img] of Object.entries(this.dinoPreviewImgs)) {
+      img.resize(50, 0);
+      if (
+        mouseIsPressed &&
+        mouseX > offx &&
+        mouseX < offx + img.width &&
+        mouseY > offy &&
+        mouseY < offy + img.height
+      ) {
+        this.updateDino(dinoName);
+      }
+      image(this.dinoPreviewImgs[dinoName], offx, offy);
+      offx += img.width;
     }
     pop();
   }
