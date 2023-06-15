@@ -3,13 +3,14 @@ const ioClient = io.connect("wss://denoback.onrender.com");
 let entities = new Map();
 let player, playerPast, mapData;
 let gameState = "menu";
-let dinoImgs;
+let imgs;
 let menu;
 let bg;
 let pm;
 let startGameBtn;
 let countdownStr = null;
 const TP_COOLDOWN_MS = 3000;
+const MAX_KNOCKBACK = 5;
 
 document.addEventListener("visibilitychange", () => {
   if (document.visibilityState === "visible")
@@ -58,6 +59,7 @@ ioClient.on("buildMapData", (_mapData) => {
   text_layer.r = 0;
 });
 
+let danger_perc = 0;
 function drawGameText() {
   if (!player) {
     push();
@@ -72,8 +74,29 @@ function drawGameText() {
   textAlign(LEFT, TOP);
   text("Room Id: " + ioClient.roomId, 20, 20, width, 50);
   textAlign(RIGHT, TOP);
-  text(`Danger: ${Math.round(player.knockback * 100)}%`, 0, 20, width - 20, 50);
   text(`Ping: ${latency}ms`, 0, 100, width - 20, 50);
+  
+  const BAR_TRANSITION_SMOOTHNESS = 20;
+  if (danger_perc < player.knockback / MAX_KNOCKBACK)
+    danger_perc += player.knockback / MAX_KNOCKBACK / BAR_TRANSITION_SMOOTHNESS;
+  else
+    danger_perc = player.knockback / MAX_KNOCKBACK;
+
+  if (danger_perc < .3)
+    fill(color(10,200,10));
+  else if (danger_perc < .5)
+    fill(color(255,248,36));
+  else if (danger_perc < .8)
+    fill(color(255, 131, 26));
+  else
+    fill(color(255, 36, 36));
+
+  rect(width/3, 50, danger_perc * (width/3), 40);
+  fill(color(0,0,0,0));
+  rect(width/3 + danger_perc * (width/3), 50, (1-danger_perc) * (width/3), 40)
+  textAlign(CENTER, CENTER);
+  fill("black");
+  text(`Danger: ${Math.round(player.knockback * 100)}%`, width/3, 50, width/3, 40);
 
   let playerCountText = "";
   if (entities.size === 0) {
@@ -84,13 +107,25 @@ function drawGameText() {
   textSize(25);
   text(playerCountText, 20, 100, width, height);
   if (ioClient.isRoomHost && entities.size && countdownStr === null) {
-    startGameBtn.setDimensions(width / 2 - 100, height / 10, 200, 70);
+    startGameBtn.setDimensions(width / 2 - 100, height / 6, 200, 50);
     startGameBtn.update();
   }
   if (countdownStr) {
     textSize(70);
     textAlign(CENTER, CENTER);
     text(countdownStr, 0, 0, width, (height * 3) / 4);
+  }
+
+  if (player.lives !== null) {
+    imgs.skull.resize(30,0);
+    imgs.heart.resize(30,0);
+    const total_width = imgs.heart.width * player.lives + imgs.skull.width * (3-player.lives);
+    for (let i=0; i<player.lives; i++) {
+      image(imgs.heart, width/2+i*imgs.heart.width-total_width/2, 10);
+    }
+    for (let j=0; j<3-player.lives; j++) {
+      image(imgs.skull, width/2+player.lives*imgs.heart.width+j*imgs.skull.width-total_width/2, 10);
+    }
   }
   pop();
 }
@@ -107,6 +142,7 @@ function createPlayer() {
   player.knockback = 0.1;
   player.lastTp = 0;
   player.locked = false;
+  player.lives = null;
   player.respawn = (x, y) => {
     // Nasty hack. Accounts for server sometimes
     // signalling client respawn while client is respawning.
@@ -135,7 +171,7 @@ function spawnSprite(id, x, y, dino = "") {
     s.h = 32;
     s.anis.w = 24;
     s.anis.h = 24;
-    s.spriteSheet = dinoImgs[dino];
+    s.spriteSheet = imgs[dino];
     s.addAnis({
       idle: { row: 0, frames: 1 },
       run: { row: 0, col: 3, frames: 7 },
@@ -159,9 +195,13 @@ function spawnSprite(id, x, y, dino = "") {
     s.draw = () => {
       let entData = entities.get(id.substring(5));
       if (!entData) return;
-      fill("black");
-      textAlign(CENTER, CENTER);
-      text(`Lives: ${entData.lives}`, 0, -50, 100, 100);
+      imgs.miniHeart.resize(15,0);
+      const total_width = imgs.miniHeart.width * entData.lives;
+      imageMode(LEFT, TOP);
+      for (let i=0; i<entData.lives; i++) {
+        // Center hearts over player body
+        image(imgs.miniHeart, i*imgs.miniHeart.width-total_width/2+entData.sprite.w/4, -30);
+      }
     };
   }
   return s;
@@ -176,7 +216,10 @@ function jump() {
 
 ioClient.on("pos", (selfId, datas) => {
   for (const data of datas) {
-    if (data.id === selfId) continue;
+    if (data.id === selfId) {
+      player.lives = data.lives;
+      continue;
+    };
     let currData = entities.get(data.id);
     if (currData === undefined) {
       entities.set(data.id, {
@@ -265,11 +308,15 @@ ioClient.on("reset", () => {
 });
 
 function preload() {
-  dinoImgs = {
+  imgs = {
     doux: loadImage("./assets/doux.png"),
     mort: loadImage("./assets/mort.png"),
     tard: loadImage("./assets/tard.png"),
     vita: loadImage("./assets/vita.png"),
+    heart: loadImage("./assets/heart.png"),
+    miniHeart: loadImage("assets/heart.png"), // p5js returns same img object if url params are the same
+                                              // but we need to manipulate both seperately...
+    skull: loadImage("./assets/skull.png")
   };
   menu = new Menu();
   menu.preload();
@@ -278,12 +325,12 @@ function preload() {
 function windowResized() {
   const MAX_CANV_HEIGHT = 864;
   const MAX_CANV_WIDTH = 1536;
-  if (windowWidth > MAX_CANV_WIDTH || windowHeight > MAX_CANV_HEIGHT) {
-    resizeCanvas(MAX_CANV_WIDTH, MAX_CANV_HEIGHT);
-    return;
-  }
-  resizeCanvas(windowWidth, windowHeight);
-  world.resize(windowWidth, windowHeight);
+  const ASPECT_RATIO = MAX_CANV_HEIGHT / MAX_CANV_WIDTH;
+
+  windowWidth = min(MAX_CANV_WIDTH, windowWidth);
+  const desired_height = min(windowWidth * ASPECT_RATIO, windowHeight);
+  resizeCanvas(windowWidth, desired_height);
+  world.resize(windowWidth, desired_height);
 }
 
 function setup() {
@@ -310,9 +357,9 @@ function setup() {
   });
   startGameBtn = new Button(
     width / 2 - 100,
-    height / 10,
+    height / 6,
     200,
-    70,
+    50,
     () => {
       ioClient.emit("requestGameStart");
     },
@@ -445,7 +492,7 @@ function drawGame() {
       const PUNCH_KNOCKBACK_MULTIPLIER = 1.3;
       player.moveAway(pSprite.x, pSprite.y, player.knockback);
       player.knockback *= PUNCH_KNOCKBACK_MULTIPLIER;
-      player.knockback = min(player.knockback, 10);
+      player.knockback = min(player.knockback, MAX_KNOCKBACK);
     }
   }
   // send player info

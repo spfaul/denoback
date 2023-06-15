@@ -114,7 +114,7 @@ class Menu {
 
   updateDino(dinoName) {
     this.selectedDino = dinoName;
-    this.dino = loadAnimation(dinoImgs[this.selectedDino], {
+    this.dino = loadAnimation(imgs[this.selectedDino], {
       frameSize: [24, 24],
       frames: 18,
     });
@@ -156,21 +156,21 @@ class Menu {
     this.dino.y = height / 5;
     animation(this.dino, this.dino.x, this.dino.y);
     // imageMode(CENTER, CENTER);
-    let offx = this.dino.x - 100;
-    let offy = this.dino.y + 50;
+    let dino_offx = this.dino.x - 100;
+    let dino_offy = this.dino.y + 50;
     for (let [dinoName, img] of Object.entries(this.dinoPreviewImgs)) {
       img.resize(50, 0);
       if (
         mouseIsPressed &&
-        mouseX > offx &&
-        mouseX < offx + img.width &&
-        mouseY > offy &&
-        mouseY < offy + img.height
+        mouseX > dino_offx &&
+        mouseX < dino_offx + img.width &&
+        mouseY > dino_offy &&
+        mouseY < dino_offy + img.height
       ) {
         this.updateDino(dinoName);
       }
-      image(this.dinoPreviewImgs[dinoName], offx, offy);
-      offx += img.width;
+      image(this.dinoPreviewImgs[dinoName], dino_offx, dino_offy);
+      dino_offx += img.width;
     }
     pop();
   }
