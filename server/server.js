@@ -18,6 +18,7 @@ function Client(sock) {
     this.sock = sock;
     this.active = true;
     this.respawning = false;
+    this.dino = "doux";
     this.id = "PLAYER-" + this.sock.id;
     this.lives = 3;
     this.x = 0;
@@ -72,7 +73,7 @@ class Room {
                     c.sock.emit("updateCountdown", null);
                     c.lives = 3;
                 }
-                this.state = "waiting";    
+                this.state = "waiting";
             }
         }
         client.respawning = true;
@@ -129,6 +130,7 @@ class Room {
                 this.host = null;
             } else {
                 this.host = this.clients[0];
+                this.host.sock.emit("updateRoomRole", true);
             }
         }
     }
@@ -161,26 +163,33 @@ io.on("connection", (socket) => {
         }
     });
 
-    socket.on("createRoom", () => {
+    socket.on("createRoom", dino => {
         if (rooms.length >= MAX_ROOMS) return;
         if (client.room)
             leaveRoom();
         let newRoom = new Room((+new Date).toString(36).slice(-5), "standoff")
+        client.dino = dino;
         newRoom.addClient(client);
         rooms.push(newRoom);
-        socket.emit("updateRoom", newRoom.id, newRoom.host === client);
+        socket.emit("updateRoom", newRoom.id);
+        socket.emit("updateRoomRole", newRoom.host === client);
         socket.emit("buildMapData", mapData[newRoom.mapName]);
     })
 
-    socket.on("joinRoom", (roomId) => {
+    socket.on("joinRoom", (roomId, dino) => {
         if (client.room && client.room.id === roomId) return;
         for (let r of rooms) {
             if (roomId === r.id) {
                 if (client.room)
                     leaveRoom();
                 r.addClient(client);
-                socket.emit("updateRoom", r.id, r.host === client);
+                client.dino = dino;
+                socket.emit("updateRoom", r.id);
+                socket.emit("updateRoomRole", r.host === client);
                 socket.emit("buildMapData", mapData[r.mapName]);
+                if (r.state === "play") {
+                    socket.emit("dead");
+                }
                 return;
             }
         }
@@ -199,7 +208,7 @@ io.on("connection", (socket) => {
         if (room === null) return;
         // broadcast dc to other clients
         for (const c of room.clients)
-            c.sock.emit("removeEnts", [client.id]);
+            c.sock.emit("removeEnt", client.id);
         leaveRoom();
     });
 
@@ -233,6 +242,7 @@ function tick(room) {
             c.lastUpdated = render_timestamp;
             return {
                id: c.id,
+               dino: c.dino,
                lives: c.lives,
                x: c.x,
                y: c.y,
@@ -248,6 +258,7 @@ function tick(room) {
     });
     for (const c of room.clients) {
         c.sock.emit("pos", c.id, allPos);
+        // console.log(c.dino);
     }
 }
 setInterval(() => {
