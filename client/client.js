@@ -7,8 +7,6 @@ let imgs;
 let menu;
 let bg;
 let pm;
-let startGameBtn;
-let countdownStr = null;
 const TP_COOLDOWN_MS = 3000;
 const MAX_KNOCKBACK = 5;
 
@@ -34,13 +32,16 @@ ioClient.on("buildMapData", (_mapData) => {
     new Tiles(gData.tiles.map, gData.tiles.x, gData.tiles.y, gData.w, gData.h);
     mapData.platforms.push(grp);
   }
-  // buls = new Group();
-  // buls.color = "cyan";
-  // buls.r = 5;
+
+  buls = new Group();
+  buls.color = "red";
+  buls.r = 5;
+  buls.life = 500;
+  buls.mass = 10;
+
   createPlayer();
   camera.target = player;
-
-  playerPast = spawnSprite("PAST_PLAYER" + ioClient.id);
+  playerPast = spawnSprite({ id: "PAST_PLAYER" + ioClient.id });
 
   gameState = "play";
   menu.hide();
@@ -55,83 +56,17 @@ ioClient.on("buildMapData", (_mapData) => {
   let text_layer = new Sprite();
   text_layer.visible = false;
   text_layer.collider = "none";
-  text_layer.update = drawGameText;
+  text_layer.update = () => menu.drawGameOverlay();
   text_layer.r = 0;
 });
 
-let danger_perc = 0;
-function drawGameText() {
-  if (!player) {
-    push();
-    textAlign(CENTER, CENTER);
-    text("Retrieving Game Info...", 0, 0, width, height);
-    pop();
-    return;
-  }
-
-  push();
-  textSize(25);
-  textAlign(LEFT, TOP);
-  text("Room Id: " + ioClient.roomId, 20, 20, width, 50);
-  textAlign(RIGHT, TOP);
-  text(`Ping: ${latency}ms`, 0, 100, width - 20, 50);
-  
-  const BAR_TRANSITION_SMOOTHNESS = 20;
-  if (danger_perc < player.knockback / MAX_KNOCKBACK)
-    danger_perc += player.knockback / MAX_KNOCKBACK / BAR_TRANSITION_SMOOTHNESS;
-  else
-    danger_perc = player.knockback / MAX_KNOCKBACK;
-
-  if (danger_perc < .3)
-    fill(color(10,200,10));
-  else if (danger_perc < .5)
-    fill(color(255,248,36));
-  else if (danger_perc < .8)
-    fill(color(255, 131, 26));
-  else
-    fill(color(255, 36, 36));
-
-  rect(width/3, 50, danger_perc * (width/3), 40);
-  fill(color(0,0,0,0));
-  rect(width/3 + danger_perc * (width/3), 50, (1-danger_perc) * (width/3), 40)
-  textAlign(CENTER, CENTER);
-  fill("black");
-  text(`Danger: ${Math.round(player.knockback * 100)}%`, width/3, 50, width/3, 40);
-
-  let playerCountText = "";
-  if (entities.size === 0) {
-    playerCountText += "Waiting For More Players...\n";
-  }
-  playerCountText += `Players: ${entities.size + 1}`;
-  textAlign(LEFT, TOP);
-  textSize(25);
-  text(playerCountText, 20, 100, width, height);
-  if (ioClient.isRoomHost && entities.size && countdownStr === null) {
-    startGameBtn.setDimensions(width / 2 - 100, height / 6, 200, 50);
-    startGameBtn.update();
-  }
-  if (countdownStr) {
-    textSize(70);
-    textAlign(CENTER, CENTER);
-    text(countdownStr, 0, 0, width, (height * 3) / 4);
-  }
-
-  if (player.lives !== null) {
-    imgs.skull.resize(30,0);
-    imgs.heart.resize(30,0);
-    const total_width = imgs.heart.width * player.lives + imgs.skull.width * (3-player.lives);
-    for (let i=0; i<player.lives; i++) {
-      image(imgs.heart, width/2+i*imgs.heart.width-total_width/2, 10);
-    }
-    for (let j=0; j<3-player.lives; j++) {
-      image(imgs.skull, width/2+player.lives*imgs.heart.width+j*imgs.skull.width-total_width/2, 10);
-    }
-  }
-  pop();
-}
-
 function createPlayer() {
-  player = spawnSprite("PLAYER" + ioClient.id, 0, 0, menu.selectedDino);
+  player = spawnSprite({
+    id: "PLAYER" + ioClient.id,
+    x: 0,
+    y: 0,
+    dino: menu.selectedDino,
+  });
   player.positionBuff = [
     {
       ts: +new Date(),
@@ -164,14 +99,14 @@ function createPlayer() {
   ioClient.on("respawn", player.respawn);
 }
 
-function spawnSprite(id, x, y, dino = "") {
-  let s = new Sprite(x, y);
-  if (id.startsWith("PLAYER")) {
+function spawnSprite(opts) {
+  let s = new Sprite(opts.x, opts.y);
+  if (opts.id.startsWith("PLAYER")) {
     s.w = 32;
     s.h = 32;
     s.anis.w = 24;
     s.anis.h = 24;
-    s.spriteSheet = imgs[dino];
+    s.spriteSheet = imgs[opts.dino];
     s.addAnis({
       idle: { row: 0, frames: 1 },
       run: { row: 0, col: 3, frames: 7 },
@@ -184,24 +119,34 @@ function spawnSprite(id, x, y, dino = "") {
     s.friction = 0;
     s.rotationLock = true;
     s.jumps = 0;
-  } else if (id.startsWith("PAST_PLAYER")) {
+  } else if (opts.id.startsWith("PAST_PLAYER")) {
     s.r = 5;
     s.collider = "none";
-    if (id === "PAST_PLAYER" + ioClient.id) s.color = color(0, 0, 250, 100);
+    if (opts.id === "PAST_PLAYER" + ioClient.id)
+      s.color = color(0, 0, 250, 100);
     else s.color = color(250, 0, 0, 100);
     s.layer = 2;
-  } else if (id.startsWith("STATS")) {
+  } else if (opts.id.startsWith("STATS")) {
     s.collider = "none";
     s.draw = () => {
-      let entData = entities.get(id.substring(5));
+      push();
+      let entData = entities.get(opts.id.substring(5));
       if (!entData) return;
-      imgs.miniHeart.resize(15,0);
+      textSize(18);
+      textAlign(CENTER, CENTER);
+      fill("yellow");
+      text(opts.ign, 0, -50);
+      if (imgs.miniHeart.width !== 15) imgs.miniHeart.resize(15, 0);
       const total_width = imgs.miniHeart.width * entData.lives;
-      imageMode(LEFT, TOP);
-      for (let i=0; i<entData.lives; i++) {
+      for (let i = 0; i < entData.lives; i++) {
         // Center hearts over player body
-        image(imgs.miniHeart, i*imgs.miniHeart.width-total_width/2+entData.sprite.w/4, -30);
+        image(
+          imgs.miniHeart,
+          i * imgs.miniHeart.width - total_width / 2 + entData.sprite.w / 4,
+          -30
+        );
       }
+      pop();
     };
   }
   return s;
@@ -219,13 +164,23 @@ ioClient.on("pos", (selfId, datas) => {
     if (data.id === selfId) {
       player.lives = data.lives;
       continue;
-    };
+    }
     let currData = entities.get(data.id);
     if (currData === undefined) {
       entities.set(data.id, {
-        sprite: spawnSprite("PLAYER" + data.id, data.x, data.y, data.dino),
-        shadow: spawnSprite("PAST_PLAYER" + data.id),
-        stats: spawnSprite("STATS" + data.id, data.x, data.y),
+        sprite: spawnSprite({
+          id: "PLAYER" + data.id,
+          x: data.x,
+          y: data.y,
+          dino: data.dino,
+        }),
+        shadow: spawnSprite({ id: "PAST_PLAYER" + data.id }),
+        stats: spawnSprite({
+          id: "STATS" + data.id,
+          x: data.x,
+          y: data.y,
+          ign: data.ign,
+        }),
         positionBuff: [],
         lastUpdated: data.lastUpdated,
         lives: data.lives,
@@ -259,7 +214,15 @@ ioClient.on("setPlayerLock", (doLock) => {
 });
 
 ioClient.on("updateCountdown", (s) => {
-  countdownStr = s;
+  menu.countdownStr = s;
+});
+
+ioClient.on("startGameEvent", (gameEvent) => {
+  menu.event = gameEvent;
+});
+
+ioClient.on("endGameEvent", (_) => {
+  menu.event = null;
 });
 
 ioClient.on("createBul", (x, y, vx, vy) => {
@@ -301,7 +264,8 @@ ioClient.on("dead", () => {
   camera.target = Array.from(entities.values())[0].sprite;
 });
 
-ioClient.on("reset", () => {
+ioClient.on("gameEnd", (winnerName) => {
+  menu.setWinner(winnerName);
   player.visible = true;
   player.collider = "dynamic";
   camera.target = player;
@@ -315,8 +279,8 @@ function preload() {
     vita: loadImage("./assets/vita.png"),
     heart: loadImage("./assets/heart.png"),
     miniHeart: loadImage("assets/heart.png"), // p5js returns same img object if url params are the same
-                                              // but we need to manipulate both seperately...
-    skull: loadImage("./assets/skull.png")
+    // but we need to manipulate both seperately...
+    skull: loadImage("./assets/skull.png"),
   };
   menu = new Menu();
   menu.preload();
@@ -355,21 +319,6 @@ function setup() {
     height: 20,
     autoCull: false,
   });
-  startGameBtn = new Button(
-    width / 2 - 100,
-    height / 6,
-    200,
-    50,
-    () => {
-      ioClient.emit("requestGameStart");
-    },
-    {
-      hoverColor: "#EEECE0",
-      defaultColor: "white",
-      text: "Start Game",
-      textSize: 28,
-    }
-  );
 }
 
 let latency = 0;
@@ -415,6 +364,7 @@ function drawGame() {
   }
 
   bg.update(player.pos);
+  buls.cull(2000);
 
   // strafing
   const speed = 1;
@@ -556,13 +506,28 @@ function drawGame() {
 
 function mousePressed() {
   if (!player || !ioClient.roomId) return;
-  if (mouseButton === LEFT) punch();
-  else if (mouseButton === RIGHT) tp();
-  // fire bullet
-  // let desired = p5.Vector.sub(createVector(mouseX-width/2+camera.x, mouseY-height/2+camera.y), createVector(player.x, player.y));
-  // desired.normalize();
-  // desired.mult(20);
-  // ioClient.emit("spawnBul", player.x+desired.x, player.y+desired.y, desired.x, desired.y);
+  if (mouseButton === LEFT) {
+    if (menu.event && menu.event.eventName === "Bullet Hell") {
+      let desired = p5.Vector.sub(
+        createVector(
+          mouseX - width / 2 + camera.x,
+          mouseY - height / 2 + camera.y
+        ),
+        createVector(player.x, player.y)
+      );
+      desired.normalize();
+      desired.mult(30);
+      ioClient.emit(
+        "spawnBul",
+        player.x + desired.x,
+        player.y + desired.y,
+        desired.x,
+        desired.y
+      );
+    } else {
+      punch();
+    }
+  } else if (mouseButton === RIGHT) tp();
 }
 
 function tp() {
