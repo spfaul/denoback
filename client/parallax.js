@@ -16,7 +16,6 @@ class ParallaxLayer {
         s.collider = "none";
         s.ani = loadAni(img, { frameSize: [img.width, img.height], frames: 1 });
         s.ani.stop();
-        // s.scale = { x: 3, y: 2.5 };
         s.scale = this.layerData.scale;
         s.x = 200;
         s.y = 500;

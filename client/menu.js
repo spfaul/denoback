@@ -79,7 +79,8 @@ class Menu {
       .attribute("maxlength", 20);
     this.selectedDino = "doux";
     this.updateDino(this.selectedDino);
-
+    this.errorMsg = "";
+    
     // Overlay
     this.danger_perc = 0;
     this.countdownStr = null;
@@ -99,12 +100,12 @@ class Menu {
         textSize: 24,
         textColor: "white"
       }
-    );
-    this.winnerName = "";
-    this.fps = null;
-    this._fpsStartTime = null;
-  }
-
+      );
+      this.winnerName = "";
+      this.fps = null;
+      this._fpsStartTime = null;
+    }
+    
   preload() {
     this.dinoPreviewImgs = {
       doux: loadImage("./assets/doux_preview.png"),
@@ -116,25 +117,57 @@ class Menu {
 
   requestRoom() {
     if (!ioClient.connected) return;
+    if (!this.ignInp.value()) {
+      this.errorMsg = "Please enter an In-Game Name";
+      return;
+    }
     ioClient.emit("createRoom", this.selectedDino, this.ignInp.value());
   }
-
+  
   joinRoom() {
     const roomId = this.roomCodeInp.value();
-    if (roomId.length !== 5) return;
+    if (roomId.length !== 5) {
+      this.errorMsg = "Invalid Code (5 Characters)";
+      return;
+    };
+    if (!this.ignInp.value()) {
+      this.errorMsg = "Please enter an In-Game Name";
+      return;
+    }
     ioClient.emit("joinRoom", roomId, this.selectedDino, this.ignInp.value());
   }
-
+  
   hide() {
     this.roomCodeInp.style("display", "none");
     this.ignInp.style("display", "none");
   }
-
+  
   show() {
     this.roomCodeInp.style("display", "block");
     this.ignInp.style("display", "block");
+    this.bottomBound = new Sprite(width/2, height, width, 20);
+    this.bottomBound.static = true;
+    this.bottomBound.color = "#99B54B";
+    this.leftBound = new Sprite(0, height/2, 20, height);
+    this.leftBound.static = true;
+    this.leftBound.color = "#FCC65F";
+    this.rightBound = new Sprite(width, height/2, 20, height);
+    this.rightBound.static = true;
+    this.rightBound.color = "#BC4D4F";
+    this.topBound = new Sprite(width/2, 0, width, 20);
+    this.topBound.static = true;
+    this.topBound.color = "#4D92BC";
+    // this.bottomBound.visible = false;
+    this.dinoRagdolls = new Group();
   }
 
+  spawnDinoRagdoll() {
+    let s = spawnSprite({id: "PLAYER", x: mouseX, y: mouseY, dino: random(Array.from(Object.keys(imgs.dinos)))});
+    s.rotationLock = false;
+    s.bounciness = 1;
+    this.dinoRagdolls.add(s);
+  }
+  
   getOffset(el) {
     // Taken from:
     // https://stackoverflow.com/questions/442404/retrieve-the-position-x-y-of-an-html-element
@@ -150,7 +183,7 @@ class Menu {
 
   updateDino(dinoName) {
     this.selectedDino = dinoName;
-    this.dino = loadAnimation(imgs[this.selectedDino], {
+    this.dino = loadAnimation(imgs.dinos[this.selectedDino], {
       frameSize: [24, 24],
       frames: 18,
     });
@@ -158,7 +191,19 @@ class Menu {
     this.dino.scale = 3;
   }
 
+  resizeSprite(sp, x, y, w, h) {
+    sp.x = x;
+    sp.y = y;
+    sp.w = w;
+    sp.h = h;
+  }
+
   update() {
+    this.dinoRagdolls.cull(50);
+    this.resizeSprite(this.bottomBound, width/2, height, width, 20);
+    this.resizeSprite(this.leftBound, 0, height/2, 20, height);
+    this.resizeSprite(this.rightBound, width, height/2, 20, height);
+    this.resizeSprite(this.topBound, width/2, 0, width, 20);
     push();
     textSize(20);
     textAlign(LEFT, TOP);
@@ -176,7 +221,7 @@ class Menu {
     this.roomCodeInp.style("width", `${roomCodeInpWidthPx}px`);
     this.newRoomBtn.setDimensions(
       width / 2 - roomCodeInpWidthPx / 2,
-      height / 5,
+      height / 3,
       roomCodeInpWidthPx,
       height / 10
     );
@@ -193,9 +238,21 @@ class Menu {
         height / 10
       );
     }
+    if (this.errorMsg) {
+      fill("red");
+      textSize(20);
+      textAlign(CENTER, TOP);
+      text(this.errorMsg, 0, canv_off.top + height / 2 + 100, width, height - (canv_off.top + height / 2));
+    }
     this.dino.x = width / 8;
     this.dino.y = height / 5;
     animation(this.dino, this.dino.x, this.dino.y);
+    if (this.ignInp.value()) {
+      fill("yellow");
+      textSize(18);
+      textAlign(CENTER, CENTER);
+      text(this.ignInp.value(), this.dino.x, this.dino.y - this.dino.h / 2 * this.dino.scale.y);
+    }
     let dino_offx = this.dino.x - 100;
     let dino_offy = this.dino.y + 50;
     for (let [dinoName, img] of Object.entries(this.dinoPreviewImgs)) {
@@ -218,6 +275,17 @@ class Menu {
       canv_off.top + height / 5 + 100
     );
     this.ignInp.style("width", `${ignroomCodeInpWidthPx}px`);
+    stroke(0);
+    fill("white");
+    strokeWeight(3);
+    textSize(25);
+    textAlign(RIGHT, TOP);
+    if (!this._fpsStartTime || +new Date() - this._fpsStartTime > 250) {
+      this.fps = getFPS();
+      this._fpsStartTime = +new Date();
+    }
+    text(`FPS: ${this.fps}`, 0, 20, width - 20, 50);
+    text(`Ping: ${latency}ms`, 0, 50, width - 20, 50);
     pop();
   }
 
@@ -265,16 +333,9 @@ class Menu {
       else fill(color(255, 36, 36));
       
     rect(width / 3, 50, this.danger_perc * (width / 3), 40);
-    fill(color(0, 0, 0, 0));
-    rect(
-      width / 3,
-      50,
-      (width / 3),
-      40,
-    );
     textAlign(CENTER, CENTER);
     stroke(0);
-    fill("white");
+    // fill("white");
     text(
       `Danger: ${Math.round(player.knockback * 100)}%`,
       width / 3,
@@ -282,12 +343,21 @@ class Menu {
       width / 3,
       40
     );
+    fill(color(0, 0, 0, 0));
+    rect(
+      width / 3,
+      50,
+      (width / 3),
+      40,
+    );
 
     stroke(0);
     fill("white");
     let playerCountText = "";
     if (entities.size === 0) {
       playerCountText += "Waiting For More Players...\n";
+    } else if (this.countdownStr === null) {
+      playerCountText += "Waiting For Host To Start...\n";
     }
     playerCountText += `Players: ${entities.size + 1}`;
     textAlign(LEFT, TOP);

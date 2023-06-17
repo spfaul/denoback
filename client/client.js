@@ -7,7 +7,7 @@ let imgs;
 let menu;
 let bg;
 let pm;
-const TP_COOLDOWN_MS = 3000;
+const TP_COOLDOWN_MS = 8000;
 const MAX_KNOCKBACK = 5;
 
 document.addEventListener("visibilitychange", () => {
@@ -43,13 +43,13 @@ ioClient.on("buildMapData", (_mapData) => {
   createPlayer();
   camera.target = player;
   playerPast = spawnSprite({ id: "PAST_PLAYER" + ioClient.id });
-
+  
   gameState = "play";
   menu.hide();
-
+  
   bg = new ParallaxLayer(mapData.bg);
   bg.load();
-
+  
   // p5play draws over our draw() loop, so we
   // have to jump thru hoops to draw our text
   // over our sprites...... by making a another
@@ -83,7 +83,6 @@ function createPlayer() {
   player.respawn = (x, y) => {
     // Nasty hack. Accounts for server sometimes
     // signalling client respawn while client is respawning.
-    if (player.positionBuff.length < 5) return;
     spawnParticles("death", player.x, player.y);
     ioClient.emit("particles", "death", player.x, player.y);
     player.x = x;
@@ -108,11 +107,12 @@ function spawnSprite(opts) {
     s.h = 32;
     s.anis.w = 24;
     s.anis.h = 24;
-    s.spriteSheet = imgs[opts.dino];
+    s.spriteSheet = imgs.dinos[opts.dino];
     s.addAnis({
       idle: { row: 0, frames: 1 },
       run: { row: 0, col: 3, frames: 7 },
       punch: { row: 0, col: 11, frames: 3 },
+      hurt: { row: 0, col: 15, frames: 3}
     });
     s.anis.frameDelay = 4;
     s.anis.punch.frameDelay = 15;
@@ -125,7 +125,7 @@ function spawnSprite(opts) {
     s.r = 5;
     s.collider = "none";
     if (opts.id === "PAST_PLAYER" + ioClient.id)
-      s.color = color(0, 0, 250, 100);
+    s.color = color(0, 0, 250, 100);
     else s.color = color(250, 0, 0, 100);
     s.layer = 2;
   } else if (opts.id.startsWith("STATS")) {
@@ -282,10 +282,12 @@ ioClient.on("gameEnd", (winnerName) => {
 
 function preload() {
   imgs = {
-    doux: loadImage("./assets/doux.png"),
-    mort: loadImage("./assets/mort.png"),
-    tard: loadImage("./assets/tard.png"),
-    vita: loadImage("./assets/vita.png"),
+    dinos: {
+      doux: loadImage("./assets/doux.png"),
+      mort: loadImage("./assets/mort.png"),
+      tard: loadImage("./assets/tard.png"),
+      vita: loadImage("./assets/vita.png"),
+    },
     heart: loadImage("./assets/heart.png"),
     miniHeart: loadImage("assets/heart.png"), // p5js returns same img object if url params are the same
     // but we need to manipulate both seperately...
@@ -328,6 +330,7 @@ function setup() {
     height: 20,
     autoCull: false,
   });
+  menu.show();
 }
 
 let latency = 0;
@@ -390,13 +393,13 @@ function drawGame() {
   }
   player.vel.x *= 0.9;
   // punching
-  if (player.ani.name === "punch" && player.ani.frame === player.ani.lastFrame)
+  if ((player.ani.name === "punch" || player.ani.name === "hurt") && player.ani.frame === player.ani.lastFrame)
     player.ani = "idle";
-  if (!moved && player.ani.name !== "punch") {
+  if (!moved && player.ani.name === "run") {
     player.ani = "idle";
     player.animations.run.play(0);
   }
-  if (moved && player.ani.name !== "punch") {
+  if (moved && player.ani.name === "idle") {
     player.ani = "run";
   }
   // jumping
@@ -454,6 +457,7 @@ function drawGame() {
       player.moveAway(pSprite.x, pSprite.y, player.knockback);
       player.knockback *= PUNCH_KNOCKBACK_MULTIPLIER;
       player.knockback = min(player.knockback, MAX_KNOCKBACK);
+      player.ani = "hurt";
     }
   }
   // send player info
@@ -516,7 +520,12 @@ function drawGame() {
 }
 
 function mousePressed() {
-  if (!player || !ioClient.roomId) return;
+  console.log("fuck")
+  const isInMenu = !player || !ioClient.roomId;
+  if (isInMenu) {
+    menu.spawnDinoRagdoll();
+    return;
+  };
   if (mouseButton === LEFT) {
     if (menu.event && menu.event.eventName === "Bullet Hell") {
       let desired = p5.Vector.sub(
