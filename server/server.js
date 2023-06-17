@@ -205,6 +205,7 @@ io.on("connection", (socket) => {
   });
 
   socket.on("particles", (pType, x, y) => {
+    if (!client.room) return;
     for (const c of client.room.clients) {
       if (c === client) continue;
       c.sock.emit("particles", pType, x, y);
@@ -214,7 +215,7 @@ io.on("connection", (socket) => {
   socket.on("createRoom", (dino, ign) => {
     if (rooms.length >= MAX_ROOMS) return;
     if (client.room) leaveRoom();
-    let newRoom = new Room((+new Date()).toString(36).slice(-5), "standoff");
+    let newRoom = new Room((+new Date()).toString(36).slice(-5), random.choice(Array.from(Object.keys(mapData))));
     client.dino = dino;
     client.ign = ign;
     newRoom.addClient(client);

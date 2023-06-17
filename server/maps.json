@@ -1,4 +1,99 @@
 {
+    "tower": {
+        "bg": {
+            "layers": [
+                {
+                    "imgName": "assets/10_Sky.png",
+                    "speed": 0.9
+                },
+                {
+                    "imgName": "assets/09_Forest.png",
+                    "speed": 0.85
+                },
+                {
+                    "imgName": "assets/08_Forest.png",
+                    "speed": 0.8
+                },
+                {
+                    "imgName": "assets/07_Forest.png",
+                    "speed": 0.7
+                },
+                {
+                    "imgName": "assets/06_Forest.png",
+                    "speed": 0.6
+                },
+                {
+                    "imgName": "assets/05_Particles.png",
+                    "speed": 0.55
+                },
+                {
+                    "imgName": "assets/04_Forest.png",
+                    "speed": 0.5
+                },
+                {
+                    "imgName": "assets/03_Particles.png",
+                    "speed": 0.4
+                },
+                {
+                    "imgName": "assets/02_Bushes.png",
+                    "speed": 0.3
+                },
+                {
+                    "imgName": "assets/01_Mist.png",
+                    "speed": 0.2
+                }
+            ],
+            "center": {
+                "x": 500,
+                "y": 100
+            },
+            "scale": {
+                "x": 2.5,
+                "y": 1.5
+            },
+            "smoothness": 0.1
+        },
+        "playArea": {
+            "xRange": [-1000, 3000],
+            "yRange": [-1000, 1500]
+        },
+        "spawnPoint": {
+            "xRange": [0, 750],
+            "yRange": [-300, -500]
+        },
+        "groups": {
+            "poles": {
+                "collider": "static",
+                "w": 50,
+                "h": 500,
+                "tile": "|",
+                "color": "cyan",
+                "tiles": {
+                    "x": 0,
+                    "y": 500,
+                    "map": [
+                        "|   |   |   |   |   |   |   |   |   |   |"
+                    ]
+                }
+            },
+            "blocks": {
+                "collider": "static",
+                "w": 50,
+                "h": 20,
+                "tile": "o",
+                "color": "#FAE7B5",
+                "tiles": {
+                    "x": -350,
+                    "y": -150,
+                    "map": [
+                        "       o o o o o o o o o o o o o o o o o o o o     ",
+                        "","","","","","","","","",
+                        "oooo                                             oooo"
+                    ]
+                }
+            }
+        }
+    },
 	"standoff": {
 		"bg": {
     		"layers": [{
@@ -38,6 +133,10 @@
     	        "x": 500,
     	        "y": 100
     	    },
+    	    "scale": {
+    	        "x": 3,
+    	        "y": 2.5
+    	    },
     	    "smoothness": 0.1
     	},
 		"playArea": {
@@ -52,11 +151,17 @@
 			"bricks": {
 				"collider": "static",
 				"w": 100,
-				"h": 20,
+				"h": 25,
 				"tile": "=",
 				"color": "#3A506D",
 				"tiles": {
-					"map": [" ===   ===", "", "", "", "", "", "", "", "", "", "", "", "==========="],
+					"map": [
+					        "      ====",
+					        "","","","","","","","","",
+					        "   ===    ===",
+					        "","","","","","","","","",
+					        "================"
+					        ],
 					"x": 0,
 					"y": 0
 				}
