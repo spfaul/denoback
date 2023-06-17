@@ -169,6 +169,8 @@ class Room {
     }
     this.clients.push(c);
     c.room = this;
+    this.respawn(c);
+    c.lives = 3;
   }
 
   removeClient(c) {
