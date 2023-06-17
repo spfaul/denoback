@@ -29,9 +29,12 @@ class Button {
     rect(this.x, this.y, this.w, this.h, 100);
 
     if (this.opts.text && this.opts.textSize) {
+      if (!this.opts.textColor)
+        fill("black");
+      else
+        fill(this.opts.textColor);
       textSize(this.opts.textSize);
       textAlign(CENTER, CENTER);
-      fill(color(0, 0, 0));
       text(this.opts.text, this.x, this.y, this.w, this.h);
     }
   }
@@ -93,10 +96,13 @@ class Menu {
         hoverColor: "#EEECE0",
         defaultColor: "white",
         text: "Start Game",
-        textSize: 28,
+        textSize: 24,
+        textColor: "white"
       }
     );
     this.winnerName = "";
+    this.fps = null;
+    this._fpsStartTime = null;
   }
 
   preload() {
@@ -233,35 +239,42 @@ class Menu {
     }
 
     push();
-    stroke(255);
+    stroke(0);
+    fill("white");
+    strokeWeight(3);
     textSize(25);
     textAlign(LEFT, TOP);
     text("Room Id: " + ioClient.roomId, 20, 20, width, 50);
     textAlign(RIGHT, TOP);
-    text(`Ping: ${latency}ms`, 0, 100, width - 20, 50);
+    if (!this._fpsStartTime || +new Date() - this._fpsStartTime > 250) {
+      this.fps = getFPS();
+      this._fpsStartTime = +new Date();
+    }
+    text(`FPS: ${this.fps}`, 0, 20, width - 20, 50);
+    text(`Ping: ${latency}ms`, 0, 50, width - 20, 50);
 
     const BAR_TRANSITION_SMOOTHNESS = 20;
     if (this.danger_perc < player.knockback / MAX_KNOCKBACK)
       this.danger_perc +=
-        player.knockback / MAX_KNOCKBACK / BAR_TRANSITION_SMOOTHNESS;
-    else this.danger_perc = player.knockback / MAX_KNOCKBACK;
-
-    if (this.danger_perc < 0.3) fill(color(10, 200, 10));
-    else if (this.this.danger_perc < 0.5) fill(color(255, 248, 36));
-    else if (this.danger_perc < 0.8) fill(color(255, 131, 26));
-    else fill(color(255, 36, 36));
-
-    stroke(0);
+      player.knockback / MAX_KNOCKBACK / BAR_TRANSITION_SMOOTHNESS;
+      else this.danger_perc = player.knockback / MAX_KNOCKBACK;
+      
+      if (this.danger_perc < 0.3) fill(color(10, 200, 10));
+      else if (this.danger_perc < 0.5) fill(color(255, 248, 36));
+      else if (this.danger_perc < 0.8) fill(color(255, 131, 26));
+      else fill(color(255, 36, 36));
+      
     rect(width / 3, 50, this.danger_perc * (width / 3), 40);
     fill(color(0, 0, 0, 0));
     rect(
-      width / 3 + this.danger_perc * (width / 3),
+      width / 3,
       50,
-      (1 - this.danger_perc) * (width / 3),
-      40
+      (width / 3),
+      40,
     );
     textAlign(CENTER, CENTER);
-    fill("black");
+    stroke(0);
+    fill("white");
     text(
       `Danger: ${Math.round(player.knockback * 100)}%`,
       width / 3,
@@ -270,7 +283,8 @@ class Menu {
       40
     );
 
-    stroke(255);
+    stroke(0);
+    fill("white");
     let playerCountText = "";
     if (entities.size === 0) {
       playerCountText += "Waiting For More Players...\n";
@@ -280,6 +294,7 @@ class Menu {
     textSize(25);
     text(playerCountText, 20, 100, width, height);
     if (ioClient.isRoomHost && entities.size && this.countdownStr === null) {
+      strokeWeight(4);
       this.startGameBtn.setDimensions(width / 2 - 100, height / 6, 200, 50);
       this.startGameBtn.update();
     }

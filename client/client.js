@@ -29,8 +29,9 @@ ioClient.on("buildMapData", (_mapData) => {
   for (const [gName, gData] of Object.entries(_mapData.groups)) {
     let grp = new Group();
     Object.assign(grp, gData);
-    new Tiles(gData.tiles.map, gData.tiles.x, gData.tiles.y, gData.w, gData.h);
     mapData.platforms.push(grp);
+    if (gData.tiles.map)
+      new Tiles(gData.tiles.map, gData.tiles.x, gData.tiles.y, gData.w, gData.h);
   }
 
   buls = new Group();
@@ -78,6 +79,7 @@ function createPlayer() {
   player.lastTp = 0;
   player.locked = false;
   player.lives = null;
+  player.jumps = 0;
   player.respawn = (x, y) => {
     // Nasty hack. Accounts for server sometimes
     // signalling client respawn while client is respawning.
@@ -261,8 +263,15 @@ ioClient.on("dead", () => {
   if (!entities.size) return;
   player.visible = false;
   player.collider = "static";
-  camera.target = Array.from(entities.values())[0].sprite;
+  findCamTarget();
 });
+
+function findCamTarget() {
+  for (const entData of entities.values()) {
+    if (entData.sprite.visible)
+      camera.target = entData.sprite;
+  }
+}
 
 ioClient.on("gameEnd", (winnerName) => {
   menu.setWinner(winnerName);
@@ -404,7 +413,7 @@ function drawGame() {
       }
       const angle_to_closest_tile = player.angleTo(
         closest_tile.x,
-        closest_tile.y
+        closest_tile.y - closest_tile.h / 2
       );
       // Only replenish jumps if player is colliding top surface of platform
       if (angle_to_closest_tile > 0) player.jumps = 0;
@@ -413,6 +422,8 @@ function drawGame() {
   }
   if (kb.presses(" ")) jump();
   // camera adjust
+  if (!camera.target.visible)
+    findCamTarget();
   camera.true_scroll[0] += (camera.target.x - camera.true_scroll[0]) / 15;
   camera.true_scroll[1] += (camera.target.y - camera.true_scroll[1]) / 15;
   camera.x = camera.true_scroll[0];
@@ -449,7 +460,7 @@ function drawGame() {
   ioClient.emit("update", {
     x: player.x,
     y: player.y,
-    vx: player.vel.x,
+    vx: player.veld .x,
     vy: player.vel.y,
     ani: player.ani.name,
     flipXAni: player.mirror.x,

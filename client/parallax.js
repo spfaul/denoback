@@ -5,6 +5,10 @@ class ParallaxLayer {
   }
 
   load() {
+    if (this.layerData.layers.length === 0) {
+      this.loaded = true;
+      return;
+    }
     let loadedImgs = 0;
     this.layerData.layers.forEach((layer, i) => {
       layer.img = loadImage(layer.imgName, (img) => {
@@ -12,7 +16,8 @@ class ParallaxLayer {
         s.collider = "none";
         s.ani = loadAni(img, { frameSize: [img.width, img.height], frames: 1 });
         s.ani.stop();
-        s.scale = { x: 3, y: 2.5 };
+        // s.scale = { x: 3, y: 2.5 };
+        s.scale = this.layerData.scale;
         s.x = 200;
         s.y = 500;
         s.layer = i - this.layerData.layers.length;
