@@ -460,7 +460,7 @@ function drawGame() {
   ioClient.emit("update", {
     x: player.x,
     y: player.y,
-    vx: player.veld .x,
+    vx: player.vel.x,
     vy: player.vel.y,
     ani: player.ani.name,
     flipXAni: player.mirror.x,
