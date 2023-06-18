@@ -1,5 +1,5 @@
-const ioClient = io.connect("wss://denoback.onrender.com");
-// const ioClient = io.connect("ws://172.104.54.249");
+// const ioClient = io.connect("wss://denoback.onrender.com");
+const ioClient = io.connect("ws://172.104.54.249");
 let entities = new Map();
 let player, playerPast, mapData;
 let gameState = "menu";
@@ -94,6 +94,7 @@ function createPlayer() {
   player.respawn = (x, y) => {
     // Nasty hack. Accounts for server sometimes
     // signalling client respawn while client is respawning.
+    console.log("respawned")
     spawnParticles("death", player.x, player.y);
     ioClient.emit("particles", "death", player.x, player.y);
     player.x = x;
@@ -292,6 +293,7 @@ ioClient.on("gameEnd", (winnerName) => {
   player.visible = true;
   player.collider = "dynamic";
   camera.target = player;
+  player.knockback = 0.1;
 });
 
 function preload() {
@@ -458,8 +460,7 @@ function drawGame() {
   }
   if (kb.presses(" ")) jump();
   // camera adjust
-  if (!camera.target || !camera.target.visible) findCamTarget();
-  console.log(player, camera.target);
+  if (!camera.target.visible) findCamTarget();
   camera.true_scroll[0] += (camera.target.x - camera.true_scroll[0]) / 15;
   camera.true_scroll[1] += (camera.target.y - camera.true_scroll[1]) / 15;
   camera.x = camera.true_scroll[0];
@@ -508,6 +509,7 @@ function drawGame() {
     tx: playerPast.x,
     ty: playerPast.y,
     tvis: playerPast.visible,
+    lastUpdated: +new Date()
   });
   // render other players
   let render_timestamp = +new Date() - 1000.0 / 50;

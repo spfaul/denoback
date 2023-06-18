@@ -223,7 +223,6 @@ class Menu {
   }
 
   spawnDinoRagdoll() {
-    console.log("asd");
     if (!this.dinoRagdolls) return;
     let s = spawnSprite({
       id: "PLAYER",
@@ -395,7 +394,7 @@ class Menu {
     this._winnerDisplayStart = +new Date();
     this._winnerDisplayEnd =
       this._winnerDisplayStart + WINNER_DISPLAY_DURATION_MS;
-    if (config.sfx) asounds.win.play();
+    if (config.sfx) sounds.win.play();
   }
 
   drawGameOverlay() {
