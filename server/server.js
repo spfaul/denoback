@@ -246,6 +246,11 @@ io.on("connection", (socket) => {
     }
   });
 
+  socket.on("leaveRoom", () => {
+    if (!client.room) return;
+    leaveRoom();
+  });
+
   socket.on("requestGameStart", () => {
     if (!client.room || client !== client.room.host) return;
     client.room.startGame();
