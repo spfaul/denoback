@@ -60,6 +60,30 @@ class Menu {
         textSize: 32,
       }
     );
+    this.moreInfoBtn = new Button(
+      0,
+      0,
+      0,
+      0,
+      () => {
+        try {
+          window
+            .open(
+              "https://github.com/spfaul/denoback/blob/master/README.md",
+              "_blank"
+            )
+            .focus();
+        } catch (e) {
+          // The forbidden sauce. Avert your eyes. Nothing to see here.
+        }
+      },
+      {
+        hoverColor: "#EEECE0",
+        defaultColor: "white",
+        text: "Find Out More",
+        textSize: 20,
+      }
+    );
     this.roomCodeInp = createInput()
       .addClass("form-control")
       .style("height", "70px")
@@ -71,9 +95,9 @@ class Menu {
     this.ignInp = createInput()
       .addClass("form-control")
       .style("height", "40px")
-      .style("font-size", "30px")
+      .style("font-size", "25px")
       .style("border-radius", "50px")
-      .attribute("placeholder", "IGN (e.g. Gary21)")
+      .attribute("placeholder", "IGN (e.g. Gary)")
       .attribute("maxlength", 20);
     this.selectedDino = "doux";
     this.updateDino(this.selectedDino);
@@ -91,6 +115,7 @@ class Menu {
       () => {
         config.sfx = !config.sfx;
         this.toggleSfxBtn.opts.text = `SFX: ${config.sfx ? "on" : "off"}`;
+        storeItem("config", config);
       },
       {
         hoverColor: "#EEECE0",
@@ -112,6 +137,7 @@ class Menu {
           sounds.gameTheme.play();
         }
         this.toggleMusicBtn.opts.text = `Music: ${config.music ? "on" : "off"}`;
+        storeItem("config", config);
       },
       {
         hoverColor: "#EEECE0",
@@ -191,7 +217,7 @@ class Menu {
       return;
     }
     if (!this.ignInp.value()) {
-      this.errorMsg = "Please enter an In-Game Name";
+      this.errorMsg = "Please enter an In-Game Name and Retype Code";
       return;
     }
     ioClient.emit("joinRoom", roomId, this.selectedDino, this.ignInp.value());
@@ -282,7 +308,7 @@ class Menu {
     text("DENOBACK", 0, 50, width, height);
     textSize(20);
     fill("#676768");
-    text("Party Game about Teleporting Karate Dinos", 0, 120, width, height);
+    text("A Party Game about Teleporting Karate Dinos", 0, 120, width, height);
     pop();
 
     textSize(20);
@@ -306,6 +332,10 @@ class Menu {
       height / 10
     );
     this.newRoomBtn.update();
+    // text("<LEFT_CLICK> to Teleport", 0, height - 140, width - 20, 50);
+
+    this.moreInfoBtn.setDimensions(width - 125, height - 230, 100, 80);
+    this.moreInfoBtn.update();
     if (this.roomCodeInp.value()) {
       fill("red");
       textSize(32);
@@ -361,7 +391,7 @@ class Menu {
       image(this.dinoPreviewImgs[dinoName], dino_offx, dino_offy);
       dino_offx += img.width;
     }
-    const ignroomCodeInpWidthPx = 300;
+    const ignroomCodeInpWidthPx = 200;
     this.ignInp.position(
       max(
         canv_off.left + width / 8 - ignroomCodeInpWidthPx / 2,

@@ -1,5 +1,5 @@
-// const ioClient = io.connect("wss://denoback.onrender.com");
-const ioClient = io.connect("ws://172.104.54.249");
+const ioClient = io.connect("wss://denoback.onrender.com");
+// const ioClient = io.connect("ws://172.104.54.249");
 let entities = new Map();
 let player, playerPast, mapData;
 let gameState = "menu";
@@ -12,7 +12,7 @@ let config = {
   sfx: true,
   music: true,
 };
-const TP_COOLDOWN_MS = 8000;
+const TP_COOLDOWN_MS = 10000;
 const MAX_KNOCKBACK = 5;
 
 document.addEventListener("visibilitychange", () => {
@@ -49,7 +49,7 @@ ioClient.on("buildMapData", (_mapData) => {
   buls.color = "red";
   buls.r = 5;
   buls.life = 500;
-  buls.mass = 10;
+  buls.mass = 15;
 
   createPlayer();
   camera.target = player;
@@ -94,7 +94,7 @@ function createPlayer() {
   player.respawn = (x, y) => {
     // Nasty hack. Accounts for server sometimes
     // signalling client respawn while client is respawning.
-    console.log("respawned")
+    console.log("respawned");
     spawnParticles("death", player.x, player.y);
     ioClient.emit("particles", "death", player.x, player.y);
     player.x = x;
@@ -166,13 +166,6 @@ function spawnSprite(opts) {
   return s;
 }
 
-function jump() {
-  if (player.jumps >= 2) return;
-
-  player.vel.y = -10;
-  player.jumps++;
-}
-
 ioClient.on("pos", (selfId, datas) => {
   for (const data of datas) {
     if (data.id === selfId) {
@@ -228,7 +221,7 @@ ioClient.on("setPlayerLock", (doLock) => {
 });
 
 ioClient.on("updateCountdown", (s) => {
-  if (!isNaN(s) && s !== null && config.sfx) {
+  if (!isNaN(s) && s && config.sfx) {
     sounds.beep.currentTime = 0;
     sounds.beep.play();
   }
@@ -282,12 +275,6 @@ ioClient.on("dead", () => {
   findCamTarget();
 });
 
-function findCamTarget() {
-  for (const entData of entities.values()) {
-    if (entData.sprite.visible) camera.target = entData.sprite;
-  }
-}
-
 ioClient.on("gameEnd", (winnerName) => {
   menu.setWinner(winnerName);
   player.visible = true;
@@ -295,6 +282,46 @@ ioClient.on("gameEnd", (winnerName) => {
   camera.target = player;
   player.knockback = 0.1;
 });
+
+function spawnParticles(name, x, y) {
+  if (name === "tp") {
+    pm.spawn(
+      "tp",
+      10,
+      [
+        [-50, 50],
+        [-50, 50],
+      ],
+      { x: x, y: y, life: 60 * 3 }
+    );
+    if (!config.sfx) return;
+    sounds.tp.currentTime = 0;
+    sounds.tp.play();
+  } else if (name === "death") {
+    pm.spawn(
+      "death",
+      20,
+      [
+        [-100, 100],
+        [0, -200],
+      ],
+      { x: x, y: y, life: 60 * 3 }
+    );
+    if (!config.sfx) return;
+    const deathSoundTrack = constrain(Math.round(random(1, 2)), 1, 2);
+    const deathSound = sounds[`death${deathSoundTrack}`];
+    deathSound.currentTime = 0;
+    deathSound.play();
+  }
+}
+
+ioClient.on("particles", spawnParticles);
+
+function findCamTarget() {
+  for (const entData of entities.values()) {
+    if (entData.sprite.visible) camera.target = entData.sprite;
+  }
+}
 
 function preload() {
   sounds = {
@@ -324,6 +351,7 @@ function preload() {
     // but we need to manipulate both seperately...
     skull: loadImage("./assets/skull.png"),
   };
+  if (getItem("config") !== null) config = getItem("config");
   menu = new Menu();
   menu.preload();
 }
@@ -337,6 +365,13 @@ function windowResized() {
   const desiredHeight = min(windowWidth * ASPECT_RATIO, windowHeight);
   resizeCanvas(windowWidth, desiredHeight);
   world.resize(windowWidth, desiredHeight);
+}
+
+function jump() {
+  if (player.jumps >= 2) return;
+
+  player.vel.y = -10;
+  player.jumps++;
 }
 
 function setup() {
@@ -509,16 +544,36 @@ function drawGame() {
     tx: playerPast.x,
     ty: playerPast.y,
     tvis: playerPast.visible,
-    lastUpdated: +new Date()
+    lastUpdated: +new Date(),
   });
   // render other players
+  renderOtherPlayers();
+
+  if (+new Date() - player.lastTp >= TP_COOLDOWN_MS) playerPast.visible = true;
+  if (player.positionBuff.length > 120) player.positionBuff.shift();
+  if (frameCount % 30) {
+    player.positionBuff.push({
+      ts: +new Date(),
+      x: player.x,
+      y: player.y,
+    });
+  }
+  const past_player_pos = player.positionBuff[0];
+  if (past_player_pos) {
+    playerPast.x = past_player_pos.x;
+    playerPast.y = past_player_pos.y;
+  }
+}
+
+function renderOtherPlayers() {
   let render_timestamp = +new Date() - 1000.0 / 50;
   for (const [id, data] of entities) {
     if (id == "PLAYER-" + ioClient.id) {
       player.vel.limit(10);
       continue;
     }
-    // Interpolation between server updates for non-player entities
+    // Position Interpolation between server updates for non-player entities
+    // Allows for smoother transitions between movements
     while (
       data.positionBuff.length >= 2 &&
       data.positionBuff[1][0] <= render_timestamp
@@ -540,21 +595,6 @@ function drawGame() {
       data.sprite.x = x0 + ((x1 - x0) * (render_timestamp - t0)) / (t1 - t0);
       data.sprite.y = y0 + ((y1 - y0) * (render_timestamp - t0)) / (t1 - t0);
     }
-  }
-
-  if (+new Date() - player.lastTp >= TP_COOLDOWN_MS) playerPast.visible = true;
-  if (player.positionBuff.length > 120) player.positionBuff.shift();
-  if (frameCount % 30) {
-    player.positionBuff.push({
-      ts: +new Date(),
-      x: player.x,
-      y: player.y,
-    });
-  }
-  const past_player_pos = player.positionBuff[0];
-  if (past_player_pos) {
-    playerPast.x = past_player_pos.x;
-    playerPast.y = past_player_pos.y;
   }
 }
 
@@ -601,40 +641,6 @@ function tp() {
     sounds.tp.play();
   }
 }
-
-function spawnParticles(name, x, y) {
-  if (name === "tp") {
-    pm.spawn(
-      "tp",
-      10,
-      [
-        [-50, 50],
-        [-50, 50],
-      ],
-      { x: x, y: y, life: 60 * 3 }
-    );
-    if (!config.sfx) return;
-    sounds.tp.currentTime = 0;
-    sounds.tp.play();
-  } else if (name === "death") {
-    pm.spawn(
-      "death",
-      20,
-      [
-        [-100, 100],
-        [0, -200],
-      ],
-      { x: x, y: y, life: 60 * 3 }
-    );
-    if (!config.sfx) return;
-    const deathSoundTrack = constrain(Math.round(random(1, 2)), 1, 2);
-    const deathSound = sounds[`death${deathSoundTrack}`];
-    deathSound.currentTime = 0;
-    deathSound.play();
-  }
-}
-
-ioClient.on("particles", spawnParticles);
 
 function punch() {
   if (player.ani.name === "punch") return;
