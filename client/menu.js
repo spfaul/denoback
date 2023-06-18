@@ -29,10 +29,8 @@ class Button {
     rect(this.x, this.y, this.w, this.h, 100);
 
     if (this.opts.text && this.opts.textSize) {
-      if (!this.opts.textColor)
-        fill("black");
-      else
-        fill(this.opts.textColor);
+      if (!this.opts.textColor) fill("black");
+      else fill(this.opts.textColor);
       textSize(this.opts.textSize);
       textAlign(CENTER, CENTER);
       text(this.opts.text, this.x, this.y, this.w, this.h);
@@ -80,16 +78,75 @@ class Menu {
     this.selectedDino = "doux";
     this.updateDino(this.selectedDino);
     this.errorMsg = "";
-    
+
     // Overlay
     this.danger_perc = 0;
     this.countdownStr = null;
     this.event = null;
+    this.toggleSfxBtn = new Button(
+      0,
+      0,
+      0,
+      0,
+      () => {
+        config.sfx = !config.sfx;
+        this.toggleSfxBtn.opts.text = `SFX: ${config.sfx ? "on" : "off"}`;
+      },
+      {
+        hoverColor: "#EEECE0",
+        defaultColor: "white",
+        text: `SFX: ${config.sfx ? "on" : "off"}`,
+        textSize: 15,
+      }
+    );
+    this.toggleMusicBtn = new Button(
+      0,
+      0,
+      0,
+      0,
+      () => {
+        config.music = !config.music;
+        if (!config.music) {
+          sounds.gameTheme.pause();
+        } else {
+          sounds.gameTheme.play();
+        }
+        this.toggleMusicBtn.opts.text = `Music: ${config.music ? "on" : "off"}`;
+      },
+      {
+        hoverColor: "#EEECE0",
+        defaultColor: "white",
+        text: `Music: ${config.music ? "on" : "off"}`,
+        textSize: 15,
+      }
+    );
+    this.exitBtn = new Button(
+      0,
+      0,
+      0,
+      0,
+      () => {
+        allSprites.removeAll();
+        gameState = "menu";
+        this.show();
+        camera.x = world.hw;
+        camera.y = world.hh;
+        ioClient.emit("leaveRoom");
+        sounds.gameTheme.pause();
+      },
+      {
+        hoverColor: "#EEECE0",
+        defaultColor: "white",
+        text: "Exit Game",
+        textSize: 15,
+        textColor: "red",
+      }
+    );
     this.startGameBtn = new Button(
-      width / 2 - 100,
-      height / 6,
-      200,
-      50,
+      0,
+      0,
+      0,
+      0,
       () => {
         ioClient.emit("requestGameStart");
       },
@@ -98,14 +155,14 @@ class Menu {
         defaultColor: "white",
         text: "Start Game",
         textSize: 24,
-        textColor: "white"
+        textColor: "white",
       }
-      );
-      this.winnerName = "";
-      this.fps = null;
-      this._fpsStartTime = null;
-    }
-    
+    );
+    this.winnerName = "";
+    this.fps = null;
+    this._fpsStartTime = null;
+  }
+
   preload() {
     this.dinoPreviewImgs = {
       doux: loadImage("./assets/doux_preview.png"),
@@ -113,6 +170,9 @@ class Menu {
       tard: loadImage("./assets/tard_preview.png"),
       vita: loadImage("./assets/vita_preview.png"),
     };
+    this.menuMusic = sounds.menuTheme;
+    this.menuMusic.loop = true;
+    this.menuMusic.autoplay = true;
   }
 
   requestRoom() {
@@ -123,38 +183,39 @@ class Menu {
     }
     ioClient.emit("createRoom", this.selectedDino, this.ignInp.value());
   }
-  
+
   joinRoom() {
     const roomId = this.roomCodeInp.value();
     if (roomId.length !== 5) {
       this.errorMsg = "Invalid Code (5 Characters)";
       return;
-    };
+    }
     if (!this.ignInp.value()) {
       this.errorMsg = "Please enter an In-Game Name";
       return;
     }
     ioClient.emit("joinRoom", roomId, this.selectedDino, this.ignInp.value());
   }
-  
+
   hide() {
     this.roomCodeInp.style("display", "none");
     this.ignInp.style("display", "none");
+    this.menuMusic.pause();
   }
-  
+
   show() {
     this.roomCodeInp.style("display", "block");
     this.ignInp.style("display", "block");
-    this.bottomBound = new Sprite(width/2, height, width, 20);
+    this.bottomBound = new Sprite(width / 2, height, width, 20);
     this.bottomBound.static = true;
     this.bottomBound.color = "#99B54B";
-    this.leftBound = new Sprite(0, height/2, 20, height);
+    this.leftBound = new Sprite(0, height / 2, 20, height);
     this.leftBound.static = true;
     this.leftBound.color = "#FCC65F";
-    this.rightBound = new Sprite(width, height/2, 20, height);
+    this.rightBound = new Sprite(width, height / 2, 20, height);
     this.rightBound.static = true;
     this.rightBound.color = "#BC4D4F";
-    this.topBound = new Sprite(width/2, 0, width, 20);
+    this.topBound = new Sprite(width / 2, 0, width, 20);
     this.topBound.static = true;
     this.topBound.color = "#4D92BC";
     // this.bottomBound.visible = false;
@@ -162,12 +223,19 @@ class Menu {
   }
 
   spawnDinoRagdoll() {
-    let s = spawnSprite({id: "PLAYER", x: mouseX, y: mouseY, dino: random(Array.from(Object.keys(imgs.dinos)))});
+    console.log("asd");
+    if (!this.dinoRagdolls) return;
+    let s = spawnSprite({
+      id: "PLAYER",
+      x: mouseX,
+      y: mouseY,
+      dino: random(Array.from(Object.keys(imgs.dinos))),
+    });
     s.rotationLock = false;
     s.bounciness = 1;
     this.dinoRagdolls.add(s);
   }
-  
+
   getOffset(el) {
     // Taken from:
     // https://stackoverflow.com/questions/442404/retrieve-the-position-x-y-of-an-html-element
@@ -200,11 +268,24 @@ class Menu {
 
   update() {
     this.dinoRagdolls.cull(50);
-    this.resizeSprite(this.bottomBound, width/2, height, width, 20);
-    this.resizeSprite(this.leftBound, 0, height/2, 20, height);
-    this.resizeSprite(this.rightBound, width, height/2, 20, height);
-    this.resizeSprite(this.topBound, width/2, 0, width, 20);
+    this.resizeSprite(this.bottomBound, width / 2, height, width, 20);
+    this.resizeSprite(this.leftBound, 0, height / 2, 20, height);
+    this.resizeSprite(this.rightBound, width, height / 2, 20, height);
+    this.resizeSprite(this.topBound, width / 2, 0, width, 20);
     push();
+    fill("black");
+
+    // Game title
+    push();
+    textFont("Valo");
+    textSize(70);
+    textAlign(CENTER, TOP);
+    text("DENOBACK", 0, 50, width, height);
+    textSize(20);
+    fill("#676768");
+    text("Party Game about Teleporting Karate Dinos", 0, 120, width, height);
+    pop();
+
     textSize(20);
     textAlign(LEFT, TOP);
     text("Server Status: ", 30, 30, width, 30);
@@ -242,16 +323,28 @@ class Menu {
       fill("red");
       textSize(20);
       textAlign(CENTER, TOP);
-      text(this.errorMsg, 0, canv_off.top + height / 2 + 100, width, height - (canv_off.top + height / 2));
+      text(
+        this.errorMsg,
+        0,
+        (height * 2) / 3,
+        width,
+        height - (canv_off.top + height / 2)
+      );
     }
     this.dino.x = width / 8;
     this.dino.y = height / 5;
     animation(this.dino, this.dino.x, this.dino.y);
     if (this.ignInp.value()) {
+      stroke("black");
+      strokeWeight(3);
       fill("yellow");
       textSize(18);
       textAlign(CENTER, CENTER);
-      text(this.ignInp.value(), this.dino.x, this.dino.y - this.dino.h / 2 * this.dino.scale.y);
+      text(
+        this.ignInp.value(),
+        this.dino.x,
+        this.dino.y - (this.dino.h / 2) * this.dino.scale.y
+      );
     }
     let dino_offx = this.dino.x - 100;
     let dino_offy = this.dino.y + 50;
@@ -271,7 +364,10 @@ class Menu {
     }
     const ignroomCodeInpWidthPx = 300;
     this.ignInp.position(
-      max(canv_off.left + width / 8 - ignroomCodeInpWidthPx / 2, canv_off.left),
+      max(
+        canv_off.left + width / 8 - ignroomCodeInpWidthPx / 2,
+        canv_off.left + 20
+      ),
       canv_off.top + height / 5 + 100
     );
     this.ignInp.style("width", `${ignroomCodeInpWidthPx}px`);
@@ -286,6 +382,10 @@ class Menu {
     }
     text(`FPS: ${this.fps}`, 0, 20, width - 20, 50);
     text(`Ping: ${latency}ms`, 0, 50, width - 20, 50);
+    text("<A><D> to Move", 0, height - 50, width - 20, 50);
+    text("<SPACE> to Jump", 0, height - 80, width - 20, 50);
+    text("<RIGHT_CLICK> to Punch", 0, height - 110, width - 20, 50);
+    text("<LEFT_CLICK> to Teleport", 0, height - 140, width - 20, 50);
     pop();
   }
 
@@ -295,6 +395,7 @@ class Menu {
     this._winnerDisplayStart = +new Date();
     this._winnerDisplayEnd =
       this._winnerDisplayStart + WINNER_DISPLAY_DURATION_MS;
+    if (config.sfx) asounds.win.play();
   }
 
   drawGameOverlay() {
@@ -305,6 +406,13 @@ class Menu {
       pop();
       return;
     }
+
+    this.toggleSfxBtn.setDimensions(20, height - 60, 80, 40);
+    this.toggleSfxBtn.update();
+    this.toggleMusicBtn.setDimensions(20, height - 120, 80, 40);
+    this.toggleMusicBtn.update();
+    this.exitBtn.setDimensions(20, height - 180, 80, 40);
+    this.exitBtn.update();
 
     push();
     stroke(0);
@@ -324,14 +432,14 @@ class Menu {
     const BAR_TRANSITION_SMOOTHNESS = 20;
     if (this.danger_perc < player.knockback / MAX_KNOCKBACK)
       this.danger_perc +=
-      player.knockback / MAX_KNOCKBACK / BAR_TRANSITION_SMOOTHNESS;
-      else this.danger_perc = player.knockback / MAX_KNOCKBACK;
-      
-      if (this.danger_perc < 0.3) fill(color(10, 200, 10));
-      else if (this.danger_perc < 0.5) fill(color(255, 248, 36));
-      else if (this.danger_perc < 0.8) fill(color(255, 131, 26));
-      else fill(color(255, 36, 36));
-      
+        player.knockback / MAX_KNOCKBACK / BAR_TRANSITION_SMOOTHNESS;
+    else this.danger_perc = player.knockback / MAX_KNOCKBACK;
+
+    if (this.danger_perc < 0.3) fill(color(10, 200, 10));
+    else if (this.danger_perc < 0.5) fill(color(255, 248, 36));
+    else if (this.danger_perc < 0.8) fill(color(255, 131, 26));
+    else fill(color(255, 36, 36));
+
     rect(width / 3, 50, this.danger_perc * (width / 3), 40);
     textAlign(CENTER, CENTER);
     stroke(0);
@@ -344,12 +452,7 @@ class Menu {
       40
     );
     fill(color(0, 0, 0, 0));
-    rect(
-      width / 3,
-      50,
-      (width / 3),
-      40,
-    );
+    rect(width / 3, 50, width / 3, 40);
 
     stroke(0);
     fill("white");

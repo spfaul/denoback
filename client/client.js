@@ -4,9 +4,14 @@ let entities = new Map();
 let player, playerPast, mapData;
 let gameState = "menu";
 let imgs;
+let sounds;
 let menu;
 let bg;
 let pm;
+let config = {
+  sfx: true,
+  music: true,
+};
 const TP_COOLDOWN_MS = 8000;
 const MAX_KNOCKBACK = 5;
 
@@ -31,7 +36,13 @@ ioClient.on("buildMapData", (_mapData) => {
     Object.assign(grp, gData);
     mapData.platforms.push(grp);
     if (gData.tiles.map)
-      new Tiles(gData.tiles.map, gData.tiles.x, gData.tiles.y, gData.w, gData.h);
+      new Tiles(
+        gData.tiles.map,
+        gData.tiles.x,
+        gData.tiles.y,
+        gData.w,
+        gData.h
+      );
   }
 
   buls = new Group();
@@ -43,13 +54,13 @@ ioClient.on("buildMapData", (_mapData) => {
   createPlayer();
   camera.target = player;
   playerPast = spawnSprite({ id: "PAST_PLAYER" + ioClient.id });
-  
+
   gameState = "play";
   menu.hide();
-  
+
   bg = new ParallaxLayer(mapData.bg);
   bg.load();
-  
+
   // p5play draws over our draw() loop, so we
   // have to jump thru hoops to draw our text
   // over our sprites...... by making a another
@@ -112,7 +123,7 @@ function spawnSprite(opts) {
       idle: { row: 0, frames: 1 },
       run: { row: 0, col: 3, frames: 7 },
       punch: { row: 0, col: 11, frames: 3 },
-      hurt: { row: 0, col: 15, frames: 3}
+      hurt: { row: 0, col: 15, frames: 3 },
     });
     s.anis.frameDelay = 4;
     s.anis.punch.frameDelay = 15;
@@ -125,7 +136,7 @@ function spawnSprite(opts) {
     s.r = 5;
     s.collider = "none";
     if (opts.id === "PAST_PLAYER" + ioClient.id)
-    s.color = color(0, 0, 250, 100);
+      s.color = color(0, 0, 250, 100);
     else s.color = color(250, 0, 0, 100);
     s.layer = 2;
   } else if (opts.id.startsWith("STATS")) {
@@ -216,6 +227,10 @@ ioClient.on("setPlayerLock", (doLock) => {
 });
 
 ioClient.on("updateCountdown", (s) => {
+  if (!isNaN(s) && s !== null && config.sfx) {
+    sounds.beep.currentTime = 0;
+    sounds.beep.play();
+  }
   menu.countdownStr = s;
 });
 
@@ -268,8 +283,7 @@ ioClient.on("dead", () => {
 
 function findCamTarget() {
   for (const entData of entities.values()) {
-    if (entData.sprite.visible)
-      camera.target = entData.sprite;
+    if (entData.sprite.visible) camera.target = entData.sprite;
   }
 }
 
@@ -281,6 +295,20 @@ ioClient.on("gameEnd", (winnerName) => {
 });
 
 function preload() {
+  sounds = {
+    menuTheme: new Audio("./assets/menu_music.mp3"),
+    gameTheme: new Audio("./assets/game_theme.mp3"),
+    punch1: new Audio("./assets/woosh1.mp3"),
+    punch2: new Audio("./assets/woosh2.mp3"),
+    punch3: new Audio("./assets/woosh3.mp3"),
+    hurt: new Audio("./assets/hurt.mp3"),
+    win: new Audio("./assets/win.mp3"),
+    tp: new Audio("./assets/tp.mp3"),
+    death1: new Audio("./assets/death1.mp3"),
+    death2: new Audio("./assets/death2.mp3"),
+    beep: new Audio("./assets/beep.mp3"),
+  };
+  sounds.gameTheme.volume = 0.05;
   imgs = {
     dinos: {
       doux: loadImage("./assets/doux.png"),
@@ -289,7 +317,8 @@ function preload() {
       vita: loadImage("./assets/vita.png"),
     },
     heart: loadImage("./assets/heart.png"),
-    miniHeart: loadImage("assets/heart.png"), // p5js returns same img object if url params are the same
+    miniHeart: loadImage("assets/heart.png"),
+    // p5js returns same img object if url params are the same
     // but we need to manipulate both seperately...
     skull: loadImage("./assets/skull.png"),
   };
@@ -303,9 +332,9 @@ function windowResized() {
   const ASPECT_RATIO = MAX_CANV_HEIGHT / MAX_CANV_WIDTH;
 
   windowWidth = min(MAX_CANV_WIDTH, windowWidth);
-  const desired_height = min(windowWidth * ASPECT_RATIO, windowHeight);
-  resizeCanvas(windowWidth, desired_height);
-  world.resize(windowWidth, desired_height);
+  const desiredHeight = min(windowWidth * ASPECT_RATIO, windowHeight);
+  resizeCanvas(windowWidth, desiredHeight);
+  world.resize(windowWidth, desiredHeight);
 }
 
 function setup() {
@@ -344,7 +373,7 @@ setInterval(() => {
 
 function draw() {
   background(220);
-  if (gameState === "menu") drawMenu();
+  if (gameState === "menu") menu.update();
   else if (gameState === "play") {
     if (!gameIsLoaded()) drawLoading();
     else drawGame();
@@ -366,14 +395,15 @@ function drawLoading() {
   pop();
 }
 
-function drawMenu() {
-  menu.update();
-}
-
 function drawGame() {
   if (!allSprites.visible) {
     allSprites.visible = true;
   }
+  if (
+    (sounds.gameTheme.paused || !sounds.gameTheme.currentTime) &&
+    config.music
+  )
+    sounds.gameTheme.play();
 
   bg.update(player.pos);
   buls.cull(2000);
@@ -393,7 +423,10 @@ function drawGame() {
   }
   player.vel.x *= 0.9;
   // punching
-  if ((player.ani.name === "punch" || player.ani.name === "hurt") && player.ani.frame === player.ani.lastFrame)
+  if (
+    (player.ani.name === "punch" || player.ani.name === "hurt") &&
+    player.ani.frame === player.ani.lastFrame
+  )
     player.ani = "idle";
   if (!moved && player.ani.name === "run") {
     player.ani = "idle";
@@ -425,8 +458,8 @@ function drawGame() {
   }
   if (kb.presses(" ")) jump();
   // camera adjust
-  if (!camera.target.visible)
-    findCamTarget();
+  if (!camera.target || !camera.target.visible) findCamTarget();
+  console.log(player, camera.target);
   camera.true_scroll[0] += (camera.target.x - camera.true_scroll[0]) / 15;
   camera.true_scroll[1] += (camera.target.y - camera.true_scroll[1]) / 15;
   camera.x = camera.true_scroll[0];
@@ -458,6 +491,10 @@ function drawGame() {
       player.knockback *= PUNCH_KNOCKBACK_MULTIPLIER;
       player.knockback = min(player.knockback, MAX_KNOCKBACK);
       player.ani = "hurt";
+      if (config.sfx) {
+        sounds.hurt.currentTime = 0;
+        sounds.hurt.play();
+      }
     }
   }
   // send player info
@@ -520,12 +557,11 @@ function drawGame() {
 }
 
 function mousePressed() {
-  console.log("fuck")
-  const isInMenu = !player || !ioClient.roomId;
-  if (isInMenu) {
+  if (gameState === "menu") {
     menu.spawnDinoRagdoll();
+    if (config.music) menu.menuMusic.play();
     return;
-  };
+  }
   if (mouseButton === LEFT) {
     if (menu.event && menu.event.eventName === "Bullet Hell") {
       let desired = p5.Vector.sub(
@@ -558,10 +594,14 @@ function tp() {
   player.pos = playerPast.pos;
   playerPast.visible = false;
   player.lastTp = now_ts;
+  if (config.sfx) {
+    sounds.tp.currentTime = 0;
+    sounds.tp.play();
+  }
 }
 
 function spawnParticles(name, x, y) {
-  if (name === "tp")
+  if (name === "tp") {
     pm.spawn(
       "tp",
       10,
@@ -571,7 +611,10 @@ function spawnParticles(name, x, y) {
       ],
       { x: x, y: y, life: 60 * 3 }
     );
-  else if (name === "death")
+    if (!config.sfx) return;
+    sounds.tp.currentTime = 0;
+    sounds.tp.play();
+  } else if (name === "death") {
     pm.spawn(
       "death",
       20,
@@ -581,6 +624,12 @@ function spawnParticles(name, x, y) {
       ],
       { x: x, y: y, life: 60 * 3 }
     );
+    if (!config.sfx) return;
+    const deathSoundTrack = constrain(Math.round(random(1, 2)), 1, 2);
+    const deathSound = sounds[`death${deathSoundTrack}`];
+    deathSound.currentTime = 0;
+    deathSound.play();
+  }
 }
 
 ioClient.on("particles", spawnParticles);
@@ -590,6 +639,12 @@ function punch() {
   const PUNCH_THRUST = 5;
   if (player.mirror.x) player.vel.x -= PUNCH_THRUST;
   else player.vel.x += PUNCH_THRUST;
+  if (config.sfx) {
+    const soundTrack = constrain(Math.round(random(1, 3)), 1, 3);
+    const punchSound = sounds[`punch${soundTrack}`];
+    punchSound.currentTime = 0;
+    punchSound.play();
+  }
   player.ani = "punch";
   player.ani.play(0);
 }
