@@ -45,7 +45,7 @@ class Room {
   }
 
   validateSpawnpoint(x, y) {
-    const MIN_SPAWN_DIST = 50;
+    const MIN_SPAWN_DIST = 80;
     for (const c of this.clients) {
       const d = Math.hypot(x - c.x, y - c.y);
       if (d < MIN_SPAWN_DIST) return false;
@@ -123,16 +123,16 @@ class Room {
       if (this.event.eventEndTs <= +new Date()) this.endEvent();
       return;
     }
-    if (random.int(0, 20 * 60) === 0) {
-      this.triggerEvent("Sudden Death", 15000);
+    if (random.int(0, 60 * 120) === 1234) {
+      this.triggerEvent("Sudden Death", 10000);
       for (const c of this.clients) {
         if (c.lives > 0) {
           this._prevLives[c.id] = c.lives;
           c.lives = 1;
         }
       }
-    } else if (random.int(0, 15 * 60) === 0) {
-      this.triggerEvent("Bullet Hell", 15000);
+    } else if (random.int(0, 60 * 120) === 1234) {
+      this.triggerEvent("Bullet Hell", 10000);
     }
   }
 
@@ -141,6 +141,7 @@ class Room {
       eventName: eventName,
       eventEndTs: +new Date() + eventDurationMs,
     };
+    console.log("triggered at ", +new Date());
     for (const c of this.clients) {
       c.sock.emit("startGameEvent", this.event);
     }
@@ -267,7 +268,8 @@ io.on("connection", (socket) => {
   });
 
   socket.on("update", (data) => {
-    Object.assign(client, data);
+    if (data.lastUpdated > client.lastUpdated)
+        Object.assign(client, data);
   });
 
   socket.on("spawnBul", (x, y, xVel, yVel) => {
@@ -284,7 +286,7 @@ io.on("connection", (socket) => {
 });
 
 function tick(room) {
-  let render_timestamp = +new Date();
+  // let render_timestamp = +new Date();
   room.update();
   let allPos = room.clients
     // .filter(c => c.active)
@@ -300,7 +302,6 @@ function tick(room) {
       } else if (c.respawning) {
         c.respawning = false;
       }
-      c.lastUpdated = render_timestamp;
       return {
         id: c.id,
         ign: c.ign,
