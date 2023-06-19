@@ -94,7 +94,6 @@ function createPlayer() {
   player.respawn = (x, y) => {
     // Nasty hack. Accounts for server sometimes
     // signalling client respawn while client is respawning.
-    console.log("respawned");
     spawnParticles("death", player.x, player.y);
     ioClient.emit("particles", "death", player.x, player.y);
     player.x = x;
@@ -194,7 +193,7 @@ ioClient.on("pos", (selfId, datas) => {
       });
       continue;
     }
-    if (currData.lastUpdated > data.lastUpdated) continue;
+    if (currData.lastUpdated > data.lastUpdated) continue; // only apply newest updates
     currData.shadow.x = data.tx;
     currData.shadow.y = data.ty;
     currData.shadow.visible = data.tvis;
@@ -245,13 +244,11 @@ ioClient.on("createBul", (x, y, vx, vy) => {
 });
 
 ioClient.on("disconnect", () => {
-  pendingInps = [];
   entities = new Map();
 });
 
 ioClient.on("updateRoom", (newRoomId) => {
   ioClient.roomId = newRoomId;
-  pendingInps = [];
   entities = new Map();
 });
 
@@ -336,6 +333,7 @@ function preload() {
     death1: new Audio("./assets/death1.mp3"),
     death2: new Audio("./assets/death2.mp3"),
     beep: new Audio("./assets/beep.mp3"),
+    jump: new Audio("./assets/jump.mp3")
   };
   sounds.gameTheme.volume = 0.05;
   imgs = {
@@ -369,7 +367,10 @@ function windowResized() {
 
 function jump() {
   if (player.jumps >= 2) return;
-
+  if (config.sfx) {
+    sounds.jump.currentTime = 0;
+    sounds.jump.play();
+  }
   player.vel.y = -10;
   player.jumps++;
 }
@@ -458,7 +459,7 @@ function drawGame() {
     player.mirror.x = false;
     moved = true;
   }
-  player.vel.x *= 0.9;
+  player.vel.x *= 0.9; // friction
   // punching
   if (
     (player.ani.name === "punch" || player.ani.name === "hurt") &&
@@ -549,7 +550,15 @@ function drawGame() {
   // render other players
   renderOtherPlayers();
 
+  // check for tp cooldown refresh
   if (+new Date() - player.lastTp >= TP_COOLDOWN_MS) playerPast.visible = true;
+  // draw tp
+  const past_player_pos = player.positionBuff[0];
+  if (past_player_pos) {
+    playerPast.x = past_player_pos.x;
+    playerPast.y = past_player_pos.y;
+  }
+  // queue-like update of positionBuff
   if (player.positionBuff.length > 120) player.positionBuff.shift();
   if (frameCount % 30) {
     player.positionBuff.push({
@@ -557,11 +566,6 @@ function drawGame() {
       x: player.x,
       y: player.y,
     });
-  }
-  const past_player_pos = player.positionBuff[0];
-  if (past_player_pos) {
-    playerPast.x = past_player_pos.x;
-    playerPast.y = past_player_pos.y;
   }
 }
 
@@ -606,21 +610,21 @@ function mousePressed() {
   }
   if (mouseButton === LEFT) {
     if (menu.event && menu.event.eventName === "Bullet Hell") {
-      let desired = p5.Vector.sub(
+      const desiredTrajectory = p5.Vector.sub(
         createVector(
           mouseX - width / 2 + camera.x,
           mouseY - height / 2 + camera.y
         ),
         createVector(player.x, player.y)
       );
-      desired.normalize();
-      desired.mult(30);
+      desiredTrajectory.normalize();
+      desiredTrajectory.mult(30);
       ioClient.emit(
         "spawnBul",
-        player.x + desired.x,
-        player.y + desired.y,
-        desired.x,
-        desired.y
+        player.x + desiredTrajectory.x,
+        player.y + desiredTrajectory.y,
+        desiredTrajectory.x,
+        desiredTrajectory.y
       );
     } else {
       punch();

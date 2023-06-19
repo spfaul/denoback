@@ -17,8 +17,6 @@ class ParallaxLayer {
         s.ani = loadAni(img, { frameSize: [img.width, img.height], frames: 1 });
         s.ani.stop();
         s.scale = this.layerData.scale;
-        s.x = 200;
-        s.y = 500;
         s.layer = i - this.layerData.layers.length;
         s.visible = false; // hide layers until all loaded
         layer.sprite = s;
@@ -63,7 +61,6 @@ class ParallaxLayer {
         } else if (layer_bottom_bound < camera.bound.max.y) {
           layer.sprite.y = camera.bound.max.y - layer.sprite.h / 2;
         }
-        // layer.sprite.x = max(layer.sprite.x - layer.sprite.w / 2, camera.bound.min.x) + layer.sprite.w / 2;
       }
     });
   }
