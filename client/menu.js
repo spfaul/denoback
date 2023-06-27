@@ -472,7 +472,6 @@ class Menu {
     rect(width / 3, 50, this.danger_perc * (width / 3), 40);
     textAlign(CENTER, CENTER);
     stroke(0);
-    // fill("white");
     text(
       `Danger: ${Math.round(player.knockback * 100)}%`,
       width / 3,
@@ -482,6 +481,21 @@ class Menu {
     );
     fill(color(0, 0, 0, 0));
     rect(width / 3, 50, width / 3, 40);
+
+    const tp_cooldown_remaining_secs =
+      (player.lastTp + TP_COOLDOWN_MS - +new Date()) / 1000;
+    fill("white");
+    text(
+      `Next TP: ${
+        tp_cooldown_remaining_secs < 0
+          ? "Ready"
+          : `${tp_cooldown_remaining_secs.toFixed(1)}s`
+      }`,
+      width / 3,
+      100,
+      width / 3,
+      40
+    );
 
     stroke(0);
     fill("white");

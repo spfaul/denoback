@@ -14,6 +14,8 @@ let config = {
 };
 const TP_COOLDOWN_MS = 10000;
 const MAX_KNOCKBACK = 5;
+const WORLD_GRAVITY = 30;
+const JUMP_VEL = 13;
 
 document.addEventListener("visibilitychange", () => {
   if (document.visibilityState === "visible")
@@ -372,7 +374,7 @@ function jump() {
     sounds.jump.currentTime = 0;
     sounds.jump.play();
   }
-  player.vel.y = -10;
+  player.vel.y = -JUMP_VEL;
   player.jumps++;
 }
 
@@ -384,7 +386,7 @@ function setup() {
   textFont("Changa");
   windowResized();
   camera.true_scroll = [0, 0];
-  world.gravity.y = 20;
+  world.gravity.y = WORLD_GRAVITY;
   allSprites.autoCull = false;
   pm = new ParticleManager();
   pm.createParticleGroup("tp", {
