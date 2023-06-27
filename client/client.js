@@ -270,6 +270,7 @@ ioClient.on("dead", () => {
   player.visible = false;
   player.collider = "static";
   findCamTarget();
+  console.log("target: ", camera.target === player);
 });
 
 ioClient.on("gameEnd", (winnerName) => {
@@ -316,7 +317,7 @@ ioClient.on("particles", spawnParticles);
 
 function findCamTarget() {
   for (const entData of entities.values()) {
-    if (entData.sprite.visible) camera.target = entData.sprite;
+    if (entData.lives > 0) camera.target = entData.sprite;
   }
 }
 
@@ -333,7 +334,7 @@ function preload() {
     death1: new Audio("./assets/death1.mp3"),
     death2: new Audio("./assets/death2.mp3"),
     beep: new Audio("./assets/beep.mp3"),
-    jump: new Audio("./assets/jump.mp3")
+    jump: new Audio("./assets/jump.mp3"),
   };
   sounds.gameTheme.volume = 0.05;
   imgs = {
@@ -496,7 +497,6 @@ function drawGame() {
   }
   if (kb.presses(" ")) jump();
   // camera adjust
-  if (!camera.target.visible) findCamTarget();
   camera.true_scroll[0] += (camera.target.x - camera.true_scroll[0]) / 15;
   camera.true_scroll[1] += (camera.target.y - camera.true_scroll[1]) / 15;
   camera.x = camera.true_scroll[0];
@@ -534,6 +534,7 @@ function drawGame() {
       }
     }
   }
+
   // send player info
   ioClient.emit("update", {
     x: player.x,
