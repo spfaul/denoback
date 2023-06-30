@@ -25,7 +25,7 @@ A Player's own teleport destination is shown as a small translucent **blue** cir
 Other players' teleport destinations are drawn as **red** circles.
 
 Q: Does the whole game revolve around the **Backspace** mechanic teleports?
-> No, but you can watch virtual tiny teleporting karate dinosaurs throw flying kicks and shit at each other. Reasonable tradeoff, no?
+> No, but you can watch virtual tiny teleporting karate dinosaurs throw flying kicks and shit at each other.
 
 ## Danger
 Danger% indicates the amount of knockback a dino takes from a hit. Every dino starts at 10% Danger, however the Danger% grows exponentially with every hit.
